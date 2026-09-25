@@ -49,6 +49,9 @@ LLAMA_DIR = AI_DIR / "llama.cpp"
 
 # Apache-2.0 licensed Qwen GGUFs (quantized by Qwen themselves).
 # NOTE: 3B is deliberately excluded - it uses the restrictive Qwen license.
+# Sized for CPU-only office PCs (4-8 cores, 8-16 GB RAM, no GPU):
+#   8 GB  -> 1.5B (the office default; snappy on 4 cores)
+#   16 GB+ -> 7B (only when there's headroom)
 MODEL_CATALOG = [
     {
         "key": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
@@ -59,8 +62,8 @@ MODEL_CATALOG = [
     {
         "key": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
         "url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
-        "label": "Qwen2.5 1.5B Instruct (Q4_K_M)",
-        "ram_gb": 2.0, "size_gb": 1.0, "quality": 2,
+        "label": "Qwen2.5 1.5B Instruct (Q4_K_M) - office default",
+        "ram_gb": 2.0, "size_gb": 1.1, "quality": 2,
     },
     {
         "key": "qwen2.5-7b-instruct-q4_k_m.gguf",
@@ -68,7 +71,7 @@ MODEL_CATALOG = [
         "urls": ["https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf",
                  "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf"],
         "url": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf",
-        "label": "Qwen2.5 7B Instruct (Q4_K_M)",
+        "label": "Qwen2.5 7B Instruct (Q4_K_M) - needs 16 GB RAM",
         "ram_gb": 6.0, "size_gb": 4.7, "quality": 3,
     },
 ]
@@ -269,24 +272,24 @@ def offer_system_install(a, args):
 def agent_config(cfg, bot_name):
     """Build nanobot's config.json, wired to the hub's own AI endpoints."""
     mode = cfg["privacy_mode"]
-    if mode == "local":
-        la = cfg["local_ai"]
-        provider_cfg = {"apiKey": "local", "apiBase": f"http://{la['host']}:{la['port']}/v1"}
-        model = "local/qwen"
-    elif mode == "cloud":
+    if mode in ("local", "retrieval_only"):
+        # Point the agent at the hub's tiered chain (local -> free no-key ->
+        # keyed free -> paid). The chain honors privacy mode internally.
+        provider_cfg = {"apiKey": "local", "apiBase": "http://127.0.0.1:8085/v1"}
+        model = "local/hub-chain"
+    else:  # cloud
         import os
         provider_cfg = {"apiKey": os.environ.get(cfg["cloud"]["api_key_env"], "") or None,
                         "apiBase": cfg["cloud"]["base_url"]}
         model = f"custom/{cfg['cloud']['model']}"
-    else:  # retrieval_only -> default to local llama.cpp if present, else cloud shape
-        la = cfg["local_ai"]
-        provider_cfg = {"apiKey": "local", "apiBase": f"http://{la['host']}:{la['port']}/v1"}
-        model = "local/qwen"
     return {
         "agents": {"defaults": {
             "workspace": str(AGENT_DIR / "workspace"),
             "model": model, "provider": "custom",
             "maxTokens": 2048, "temperature": 0.2,
+            # Office CPU box: llama-server runs ctx=16384; keep the agent's
+            # window under it so autocompact trims before llama.cpp 400s.
+            "contextWindowTokens": 14000,
             "botName": bot_name, "botIcon": "🌱",
             "dream": {"enabled": False},
         }},
@@ -376,13 +379,15 @@ def setup_agent(cfg, interactive=True):
 
 
 def pick_model(a):
-    """Best Apache-2.0 Qwen that fits, with headroom for the office desktop."""
+    """Best Apache-2.0 Qwen that fits a CPU-only office PC, with headroom."""
     ram_gb = a["ram_total_mb"] / 1024.0
-    # Leave the OS + PHP + DB room: never plan to use more than 45% of RAM for the model.
-    budget = max(0.0, ram_gb * 0.45)
+    cores = a.get("cpu_cores") or 4
+    # Model RAM budget: 25% on small boxes (OS + DB + PHP + agent need room),
+    # 45% once there's 16 GB+. A 7B model also wants >= 8 cores to stay usable.
+    budget = ram_gb * (0.45 if ram_gb >= 15.5 else 0.25)
     best = None
     for m in MODEL_CATALOG:
-        if m["ram_gb"] <= budget:
+        if m["ram_gb"] <= budget and (m["ram_gb"] < 4 or cores >= 8):
             best = m  # catalog is ordered small->large; keep the largest that fits
     if best is None:
         return None
@@ -472,6 +477,16 @@ def write_config(a, privacy_mode, model, cloud, py, power=False):
             "documents_dir": "documents",
             "db_path": "data/index.db",
             "top_k": 4, "chunk_chars": 1200, "chunk_overlap": 150,
+        },
+        "llm_chain": {
+            "host": "127.0.0.1", "port": 8085,
+            "disabled": [],
+            "nokey_model": "openai",
+            "keyedfree_base": "https://api.groq.com/openai/v1",
+            "keyedfree_model": "llama-3.1-8b-instant",
+            "paid_base": "https://api.openai.com/v1",
+            "paid_model": "gpt-4o-mini",
+            "note": "keys come from env: HUB_KEYEDFREE_API_KEY, HUB_PAID_API_KEY",
         },
         "server": {"host": "0.0.0.0", "port": 8090},
         "audit": a,

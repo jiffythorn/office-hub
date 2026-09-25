@@ -97,13 +97,21 @@ if [ "$POWER" = "True" ] && [ -x ".venv-agent/bin/nanobot" ]; then
   fi
 fi
 
-# --- 5. glue API ----------------------------------------------------------------
+# --- 5. glue API + LLM chain ---------------------------------------------------
 if alive data/hub.pid; then
   echo "[hub] AI API already running (pid $(cat data/hub.pid))"
 else
   nohup "$PY" -m uvicorn hub.server:app --host 0.0.0.0 --port 8090 > data/hub.log 2>&1 &
   echo $! > data/hub.pid
   echo "[hub] AI API starting on http://localhost:8090  (log: data/hub.log)"
+fi
+
+if alive data/chain.pid; then
+  echo "[chain] LLM fallback chain already running (pid $(cat data/chain.pid))"
+else
+  nohup "$PY" hub/llm_proxy.py > data/chain.log 2>&1 &
+  echo $! > data/chain.pid
+  echo "[chain] LLM fallback chain starting on :8085 (local -> free -> keyed tiers)"
 fi
 
 echo "[hub] up."

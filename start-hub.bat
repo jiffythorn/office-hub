@@ -104,11 +104,19 @@ if /i "%POWER%"=="True" if exist ".venv-agent\Scripts\nanobot.exe" (
 REM --- 5. glue API ----------------------------------------------------------------------
 if exist "data\hub.pid" (
   for /f %%p in (data\hub.pid) do tasklist /fi "pid eq %%p" 2>nul | find "%%p" >nul && (
-    echo [hub] AI API already running ^(pid %%p^) & goto done
+    echo [hub] AI API already running ^(pid %%p^) & goto chain_start
   )
 )
 start "" /b "%PY%" -m uvicorn hub.server:app --host 0.0.0.0 --port 8090 > data\hub.log 2>&1
 echo [hub] AI API starting on http://localhost:8090 ^(log: data\hub.log^)
+:chain_start
+if exist "data\chain.pid" (
+  for /f %%p in (data\chain.pid) do tasklist /fi "pid eq %%p" 2>nul | find "%%p" >nul && (
+    echo [chain] LLM fallback chain already running ^(pid %%p^) & goto done
+  )
+)
+start "" /b "%PY%" hub\llm_proxy.py > data\chain.log 2>&1
+echo [chain] LLM fallback chain starting on :8085
 :done
 echo [hub] up.
 if %HUB_ONLY%==1 exit /b 0
