@@ -122,7 +122,17 @@ ultra-light blueprint.
 > Note: Telegram/Discord messages transit those services' servers. Fine for
 > bylaws/fees/events; keep confidential minutes on the office LAN.
 
-## Switching privacy mode later
+## Admin console & switching settings later
+
+**http://localhost:8090/admin** — a password-protected settings page for
+everything the installer decides: privacy mode, cloud provider, local-AI
+context/threads, chain tiers, Power Mode with chat tokens, assistant name,
+timezone, plus Reindex and Restart-AI-services buttons. First visit asks you
+to create the admin password (or set it via `secure_admin.py`, which uses the
+HUB_AI_API password). Saves apply after the built-in restart — no need to
+re-run the installer.
+
+The command line still works too:
 
 ```bash
 python3 install.py --reconfigure
@@ -184,6 +194,8 @@ secure_admin.py       strong admin credentials + hardening checklist
 setup_apps.py         fetch Admidio/Flarum, pre-create databases
 hub/engine.py         indexer (SQLite FTS5) + retrieval + AI backends
 hub/server.py         FastAPI glue + chat UI
+hub/admin.py          /admin web console (settings without the installer)
+hub/llm_proxy.py      tiered AI fallback chain (:8085)
 config.json           written by installer; the whole system reads it
 documents/            <-- your club's documents live here
 apps/                 admidio/ flarum/ (after setup_apps.py)

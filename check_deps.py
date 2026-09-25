@@ -66,7 +66,7 @@ def check_venv():
     if not py.exists():
         add("FAIL", ".venv", "virtual environment missing", "Run: python3 install.py")
         return None
-    for mod in ("fastapi", "uvicorn", "pypdf"):
+    for mod in ("fastapi", "uvicorn", "pypdf", "multipart"):
         r = subprocess.run([str(py), "-c", f"import {mod}"], capture_output=True)
         if r.returncode == 0:
             add("OK", f"python package: {mod}")
@@ -136,9 +136,19 @@ def check_agent(cfg):
         add("FAIL", "agent config", "data/nanobot/config.json missing", "python3 doctor.py")
 
 
+def check_admin_console():
+    hash_file = ROOT / "data" / "admin_hash.txt"
+    if hash_file.exists():
+        add("OK", "admin console password (set)")
+    else:
+        add("INFO", "admin console", "no password yet",
+            "open http://localhost:8090/admin once to set it (or run python3 secure_admin.py)")
+
+
 def check_hub(cfg):
     check_python()
     check_venv()
+    check_admin_console()
     if cfg is None:
         return
     mode = cfg.get("privacy_mode", "")

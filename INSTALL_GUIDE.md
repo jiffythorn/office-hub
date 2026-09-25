@@ -184,9 +184,14 @@ the hub notices and re-indexes automatically.
 
 Open **http://localhost:8090/status**. It shows:
 
-- Which of the five components are **UP** (green) or **DOWN** (red)
+- Which of the components are **UP** (green) or **DOWN** (red)
 - How many documents are indexed
 - The recent questions asked and how long answers took
+
+**Changing settings later?** Open **http://localhost:8090/admin** — the admin
+console. First visit asks you to create an admin password; after that you can
+switch privacy mode, Power Mode, chat tokens, the assistant's name, timezone,
+and reindex or restart services with one click. No reinstalling.
 
 If something is DOWN, run the doctor — it repairs most problems itself:
 ```

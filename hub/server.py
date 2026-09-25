@@ -24,9 +24,11 @@ from pydantic import BaseModel
 
 from . import engine
 from . import agent_sync
+from .admin import router as admin_router
 
 ROOT = Path(__file__).resolve().parent.parent
 app = FastAPI(title="Office Hub AI", docs_url=None, redoc_url=None)
+app.include_router(admin_router)
 
 _lock = threading.Lock()  # SQLite writes are serialized; requests stay snappy
 
@@ -63,7 +65,7 @@ def home():
  button{padding:.6rem 1.2rem;border:0;border-radius:6px;background:#1a5fb4;color:#fff;cursor:pointer}
 </style></head><body>
 <h1>&#127968; Office Hub Assistant</h1>
-<p style="color:#777">Answers come from your own documents in <code>documents/</code>.</p>
+<p style="color:#777">Answers come from your own documents in <code>documents/</code>. &middot; <a href="/admin" style="color:#888">admin</a></p>
 <div id="log"></div>
 <form onsubmit="return go()"><input id="q" placeholder="Ask about minutes, dues, bylaws..." autocomplete="off"><button>Ask</button></form>
 <script>
@@ -186,7 +188,7 @@ td,th{{border:1px solid #ddd;padding:.4rem .6rem;text-align:left;font-size:.9rem
 h2{{margin-top:1.5rem}}a{{color:#1a5fb4}}</style></head><body>
 <h1>&#128200; Office Hub Status</h1>
 <p>Privacy mode: <b>{escape(cfg['privacy_mode'])}</b> &middot; refreshes every 30s &middot;
-<a href="/">&larr; back to the assistant</a></p>
+<a href="/">&larr; assistant</a> &middot; <a href="/admin">&#9881;&#65039; admin</a></p>
 <h2>Services</h2><table><tr><th>Component</th><th>Status</th><th>Where</th></tr>{rows}</table>
 <h2>Document index</h2><p>{docs} document(s) indexed, {chunks} searchable chunk(s).
 Files live in <code>documents/</code> &middot; <form style="display:inline"

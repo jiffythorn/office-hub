@@ -11,6 +11,7 @@ Usage:  python3 secure_admin.py            # generate everything fresh
 """
 
 import argparse
+import hashlib
 import secrets
 import stat
 import string
@@ -68,8 +69,11 @@ def main():
     lines = ["# Office Hub admin credentials",
              "# Generated: shown once here, change after first login.", ""]
     print("\nGenerated admin credentials (also saved to ADMIN_CREDENTIALS.txt):\n")
+    hub_pw = ""
     for svc, what in services.items():
         pw = gen_password()
+        if svc == "HUB_AI_API":
+            hub_pw = pw
         lines.append(f"{svc} = {pw}")
         print(f"  {svc:15} {pw}")
         print(f"  {'':15} ({what})\n")
@@ -77,6 +81,16 @@ def main():
     try:
         CREDS.chmod(stat.S_IRUSR | stat.S_IWUSR)  # 600 on Linux/macOS
     except OSError:
+        pass
+    # also set the /admin web console password to the HUB_AI_API password
+    try:
+        hash_file = ROOT / "data" / "admin_hash.txt"
+        hash_file.parent.mkdir(exist_ok=True)
+        import hashlib
+        hash_file.write_text(hashlib.sha256(hub_pw.encode()).hexdigest())
+        print(f"  /admin web console password set to HUB_AI_API's password "
+              f"(change anytime at http://localhost:8090/admin)")
+    except Exception:
         pass
     print(f"Saved to {CREDS.name}. Keep it safe, then change passwords after first login.")
     print(CHECKLIST)

@@ -435,9 +435,9 @@ def install_deps():
         print("  Creating virtual environment .venv ...")
         venv.EnvBuilder(with_pip=True).create(VENV_DIR)
     py = VENV_DIR / ("Scripts/python.exe" if platform.system() == "Windows" else "bin/python")
-    print("  Installing: fastapi uvicorn pypdf  (pinned, small, pure-python where possible)")
+    print("  Installing: fastapi uvicorn pypdf python-multipart")
     subprocess.check_call([str(py), "-m", "pip", "install", "--quiet",
-                           "fastapi", "uvicorn", "pypdf"])
+                           "fastapi", "uvicorn", "pypdf", "python-multipart"])
     print("  Done.")
     return py
 
