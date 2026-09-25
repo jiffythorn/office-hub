@@ -295,7 +295,10 @@ def agent_config(cfg, bot_name):
                         "allowChannels": [], "groupPolicy": "mention"},
         },
         # Member-safe tool policy: chat + files in the workspace only.
-        # The installer prints how officers can re-enable exec for the officer bot.
+        # documents/ is synced into the workspace by hub/agent_sync.py, so the
+        # bot can read club documents without breaking containment. Officers
+        # who need direct access lift the restriction on the officer bot
+        # (POWER_MODE_GUIDE.md section 5).
         "tools": {
             "web": {"enable": False},
             "exec": {"enable": False},
@@ -348,6 +351,13 @@ def setup_agent(cfg, interactive=True):
     AGENT_DIR.mkdir(parents=True, exist_ok=True)
     (AGENT_DIR / "workspace").mkdir(exist_ok=True)
     (AGENT_DIR / "config.json").write_text(json.dumps(cfgd, indent=2))
+    # give the agent its (sandboxed) copy of the club documents right away
+    try:
+        from hub.agent_sync import sync_docs_to_agent
+        n = sync_docs_to_agent(cfg)
+        print(f"  Synced {n} document(s) into the agent workspace.")
+    except Exception as e:
+        print(f"  (agent doc-sync skipped: {e})")
     print(f"  Agent config: {AGENT_DIR / 'config.json'}")
     if tg_token or dc_token:
         which = ", ".join(n for n, t in (("Telegram", tg_token), ("Discord", dc_token)) if t)

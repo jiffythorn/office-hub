@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from . import engine
+from . import agent_sync
 
 ROOT = Path(__file__).resolve().parent.parent
 app = FastAPI(title="Office Hub AI", docs_url=None, redoc_url=None)
@@ -113,6 +114,8 @@ def ask_endpoint(body: AskIn):
     if engine.index_is_stale(cfg):
         with _lock:
             engine.reindex(cfg, verbose=False)  # pick up new files on the fly
+    if cfg.get("power_mode"):
+        agent_sync.sync_docs_to_agent(cfg)  # keep the member bot's copy fresh
     try:
         with _lock:
             result = engine.ask(body.question.strip(), cfg)

@@ -104,7 +104,10 @@ top of the same privacy mode you chose — nothing else changes:
 - **Members chat from their phones** — a Telegram or Discord bot (free, 2-min
   setup) answers questions from your documents. Slack, email, Matrix and more
   are supported too. Members install nothing new.
-- **Automations** — "every Monday, summarize new documents and email the board."
+- **Automations** — ready-made preset pack (`automations/club-presets.json`):
+  weekly event digests, meeting-eve reminders, Monday document summaries,
+  dues follow-ups, minutes drafting — installed by sending one sentence to
+  the bot in chat.
 - **Long-term memory** and a full **agent WebUI** (`nanobot webui`) for officers.
 - **Member-safe by default**: the generated config disables shell/web tools and
   restricts the agent to its workspace. Officers can re-enable tools for
@@ -170,6 +173,7 @@ check_deps.py         readiness checker used by installer AND all start scripts
 doctor.py              check + auto-repair + restart (python3 doctor.py --yes)
 INSTALL_GUIDE.md       plain-English setup guide for non-technical users
 POWER_MODE_GUIDE.md    officer handbook: chat bots, testing, officer tools
+automations/           ready-to-install club automation preset pack
 install.sh / .bat     one-click wrappers
 start-hub.sh / .bat   ONE script starts the whole blueprint in order:
                          MariaDB -> Admidio -> Flarum -> llama.cpp -> AI API

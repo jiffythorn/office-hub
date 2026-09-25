@@ -139,16 +139,55 @@ researching online. They are also the reason the default is OFF for members.
 
 ---
 
-## 6. Useful automations (examples to ask the agent)
+## 6. Automations — the ready-made preset pack
 
-Once an officer bot is running with tools enabled, try asking it:
+The hub ships with a pack of ready-to-import weekly automations in
+**`automations/club-presets.json`**. Installing one is a single sentence
+sent to your bot in chat — the agent schedules it, and it keeps running
+across restarts.
 
-- *"Every Monday at 9am, summarize any documents added to documents/ last
-  week and send me the summary here."*
-- *"Draft a reminder message about plot fees for the newsletter."*
-- *"What changed in the bylaws between the copy from March and now?"*
-  (after you drop both versions into `documents/`)
+### Member-safe presets (safe on the shared member bot)
 
+| Preset | Runs | Install: send this sentence to the bot |
+|---|---|---|
+| **Weekly events digest** | Fri 4pm | "Every Friday at 4pm, look through the documents folder for any events, meetings, announcements or deadlines, and write a short friendly weekly digest listing them with dates. If nothing new, say so briefly." |
+| **Meeting-eve reminder** | daily 6pm, only if a meeting is tomorrow | "Every day at 6pm, check the documents folder for any meeting scheduled for tomorrow. If you find one, send a friendly reminder with the time, place, and any agenda items from the documents. If no meeting tomorrow, stay quiet - do not send anything." |
+
+### Officer-only presets (use the officer bot, section 5)
+
+| Preset | Runs | Install: send this sentence to the officer bot |
+|---|---|---|
+| **Monday doc summary** | Mon 9am | "Every Monday at 9am, list the documents in the documents folder that were added or changed in the last 7 days, write a one-paragraph summary of each, and send me the digest here." |
+| **Dues follow-up** | 1st of month, 10am | "On the first day of every month at 10am, read the dues rules from our documents, then draft a polite dues reminder message for any members I mention as behind on dues (I will tell you the names in chat), and show me the draft for review. Never send anything to members yourself." |
+| **Minutes drafter** | 2nd Wed monthly, 8pm | "On the second Wednesday of every month at 8pm, draft meeting minutes from any agenda and notes files in the documents folder for today's meeting, using our standard structure (attendees, decisions, action items), and save the draft to documents/minutes-draft.txt for my review. Do not send it to anyone." |
+| **Treasury check-in** | Fri 3pm | "Every Friday at 3pm, review any treasurer notes in the documents folder and send me a short check-in: outstanding items from last week, anything unusual in the numbers, and what needs a decision before the next meeting." |
+
+The full pack, with timezones and file conventions, lives in
+`automations/club-presets.json`.
+
+### How it works
+
+- The agent schedules each job with its built-in cron tool; you'll get a
+  chat reply confirming the schedule. Jobs are bound to the chat you sent
+  the sentence from — that's where the output arrives.
+- Times use the agent's timezone (`agents.defaults.timezone` in
+  `data/nanobot/config.json`). Add "in America/Chicago" style wording to an
+  install sentence to override.
+- Manage: **"list my scheduled automations"** · remove:
+  **"remove the automation named weekly-digest"**
+- Member-bot jobs only read the synced copy of `documents/` (refreshed
+  automatically) — they cannot touch the office PC.
+
+### File conventions the presets expect
+
+Keep these in `documents/` and everything finds its own data:
+
+- `documents/meetings.md` — one line per meeting: date, time, place, agenda
+- `documents/dues-policy.txt` — amounts, due dates, contact person
+- `documents/notes/` — officer scratch notes (treasurer, secretary)
+
+Beyond the presets, just ask in chat: *"Every Monday at 9am, summarize any
+documents added to documents/ last week and send me the summary here."*
 Schedules created through chat persist across restarts of the agent.
 
 ---

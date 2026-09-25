@@ -1,0 +1,83 @@
+{
+  "pack": "office-hub club automation presets",
+  "version": 1,
+  "how_to_install": "Send the 'install sentence' of any preset to your club bot in Telegram/Discord (as an officer). The agent schedules it and replies to confirm. List jobs with: 'list my scheduled automations'. Remove one with: 'remove the automation named <name>'.",
+  "timezone": "Cron times below use the agent's configured timezone. Change it in data/nanobot/config.json -> agents.defaults.timezone, or add 'in <City>/Timezone' to the install sentence.",
+  "prerequisites": [
+    "Power Mode enabled (python3 install.py --with-agent, or answer y at install)",
+    "A chat channel connected (POWER_MODE_GUIDE.md, sections 2-3)",
+    "For officer-only presets: the officer bot from POWER_MODE_GUIDE.md section 5"
+  ],
+
+  "member_presets": {
+    "note": "Safe on the shared member bot - they only read documents and write messages.",
+
+    "weekly-events-digest": {
+      "title": "Weekly events & news digest",
+      "what_it_does": "Every Friday afternoon, summarize club events, announcements and deadlines from documents/ and post the digest.",
+      "install_sentence": "Every Friday at 4pm, look through the documents folder for any events, meetings, announcements or deadlines, and write a short friendly weekly digest listing them with dates. If nothing new, say so briefly.",
+      "cron": "0 16 * * 5",
+      "default_name": "weekly-digest"
+    },
+
+    "meeting-eve-reminder": {
+      "title": "Meeting reminder (day before)",
+      "what_it_does": "The evening before a meeting, remind members of time, place and agenda items found in documents/. Best paired with the minutes-file convention in presets/maintenance below.",
+      "install_sentence": "Every day at 6pm, check the documents folder for any meeting scheduled for tomorrow. If you find one, send a friendly reminder with the time, place, and any agenda items from the documents. If no meeting tomorrow, stay quiet - do not send anything.",
+      "cron": "0 18 * * *",
+      "default_name": "meeting-eve-reminder"
+    }
+  },
+
+  "officer_presets": {
+    "note": "Install these on the OFFICER bot only (POWER_MODE_GUIDE.md section 5). They draft files and touch member data.",
+
+    "monday-doc-summary": {
+      "title": "Monday new-documents summary",
+      "what_it_does": "Every Monday morning, summarize what changed in documents/ last week so the board never misses a submission.",
+      "install_sentence": "Every Monday at 9am, list the documents in the documents folder that were added or changed in the last 7 days, write a one-paragraph summary of each, and send me the digest here.",
+      "cron": "0 9 * * 1",
+      "default_name": "monday-doc-digest"
+    },
+
+    "dues-followup": {
+      "title": "Monthly dues follow-up list",
+      "what_it_does": "Drafts (does NOT send) a polite reminder for members behind on dues, using the dues rules in documents/ and the member data the officer provides. An officer reviews and sends it.",
+      "install_sentence": "On the first day of every month at 10am, read the dues rules from our documents, then draft a polite dues reminder message for any members I mention as behind on dues (I will tell you the names in chat), and show me the draft for review. Never send anything to members yourself.",
+      "cron": "0 10 1 * *",
+      "default_name": "dues-followup"
+    },
+
+    "minutes-drafter": {
+      "title": "Post-meeting minutes drafter",
+      "what_it_does": "The evening after each monthly meeting, draft minutes from the agenda + officer notes saved in documents/notes/, ready to edit and approve.",
+      "install_sentence": "On the second Wednesday of every month at 8pm, draft meeting minutes from any agenda and notes files in the documents folder for today's meeting, using our standard structure (attendees, decisions, action items), and save the draft to documents/minutes-draft.txt for my review. Do not send it to anyone.",
+      "cron": "0 20 * * 2#2",
+      "default_name": "minutes-drafter"
+    },
+
+    "treasury-weekly": {
+      "title": "Weekly treasury check-in",
+      "what_it_does": "A Friday nudge to reconcile: lists what was asked last time and what is still open. Works on notes the officer keeps in documents/notes/.",
+      "install_sentence": "Every Friday at 3pm, review any treasurer notes in the documents folder and send me a short check-in: outstanding items from last week, anything unusual in the numbers, and what needs a decision before the next meeting.",
+      "cron": "0 15 * * 5",
+      "default_name": "treasury-checkin"
+    }
+  },
+
+  "maintenance_conventions": {
+    "note": "Presets work best when documents follow simple conventions. Keep these files in documents/ and the bots find everything on their own.",
+    "files": {
+      "documents/meetings.md": "One line per meeting: date, time, place, agenda. The meeting-eve reminder scans this daily.",
+      "documents/dues-policy.txt": "Dues amounts, due dates, who to contact. The dues drafter reads this.",
+      "documents/notes/": "Officer scratch notes (treasurer, secretary). Officer presets read here."
+    }
+  },
+
+  "manage": {
+    "list": "list my scheduled automations",
+    "remove": "remove the automation named <name>",
+    "pause": "remove it, then install it again when you need it (nanobot keeps history)",
+    "timezone_example": "Every Friday at 4pm in America/Chicago, ..."
+  }
+}

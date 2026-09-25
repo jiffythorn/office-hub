@@ -156,6 +156,11 @@ def repair_agent(cfg):
     (ROOT / "data" / "nanobot").mkdir(parents=True, exist_ok=True)
     (ROOT / "data" / "nanobot" / "workspace").mkdir(exist_ok=True)
     (ROOT / "data" / "nanobot" / "config.json").write_text(json.dumps(cfgd, indent=2))
+    try:
+        from hub.agent_sync import sync_docs_to_agent
+        sync_docs_to_agent(cfg)
+    except Exception:
+        pass
     note("agent reinstalled and config regenerated (chat tokens preserved)")
 
 
