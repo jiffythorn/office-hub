@@ -107,7 +107,10 @@ environment variable (`OPENROUTER_API_KEY` or `GROQ_API_KEY`) at runtime.
 ## Security posture
 
 - Everything binds to the LAN only; **never port-forward** 8080–8090.
-- For remote access use a VPN (Tailscale is free and zero-config).
+- For remote access use a VPN (Tailscale is free and zero-config) — see
+  **Part 9 of the [Install Guide](INSTALL_GUIDE.md)** for the full walkthrough,
+  including the one-shared-account trick that keeps it on the free tier
+  (one login, many devices, $0/month — avoid per-user VPN billing).
 - `secure_admin.py` prints a hardening checklist (disk encryption, backups,
   manual approval of new forum users).
 - `ADMIN_CREDENTIALS.txt` is written with owner-only permissions; delete it

@@ -185,6 +185,69 @@ python3 doctor.py              (Windows: python doctor.py)
 
 ---
 
+## Part 9 — Using the hub from outside the office
+
+Sooner or later someone asks: *"can I check the forum from home?"* Here is
+how to do it **safely** and for **$0 a month**.
+
+### The golden rule: never open your router
+
+You may see tutorials saying to "forward ports" or set up a "DMZ" on your
+router. **Don't.** That copies your club's member data onto the open
+internet, where automated bots find an open door within hours and try thousands
+of password guesses a day. There is a better way that costs nothing.
+
+### The free way: Tailscale (a private wire to your office PC)
+
+Tailscale (https://tailscale.com) gives your office PC and your home
+device a private, encrypted tunnel — the hub behaves as if you were sitting
+in the office. No router changes, no open doors.
+
+**One-time setup (10 minutes):**
+1. On the **office PC**: go to tailscale.com → *Download* → install → sign
+   in with a Google/Microsoft/GitHub account. The PC now has a private
+   name (something like `office-pc`).
+2. On the **laptop or phone you travel with**: install Tailscale and sign
+   in **with the same account**.
+3. From anywhere, open `http://office-pc:8090` (and `:8080` / `:8081` for
+   the portal and forum). That's it — hotel Wi-Fi, phone hotspot, works.
+
+### The one-shared-account trick (avoid the "per user" billing trap)
+
+Tailscale's free plan allows **3 users and 100 devices** — and paid plans
+charge **per user, not per device**. So don't invite each board member as a
+separate user (that's what triggers the "upgrade to $6/user/month" e-mail).
+Instead:
+
+1. Create **one shared account** just for this (for example a free Gmail
+   like `yourclub.remote@gmail.com`) and use it for the Tailscale login on
+   the office PC.
+2. Install Tailscale on each officer's laptop/phone and sign **every one of
+   them into that same shared account**. Each device counts as a device —
+   you can have dozens, all free.
+3. Keep that shared password in the same sealed envelope as the other hub
+   passwords. When someone leaves the club, remove their device in the
+   Tailscale admin page (one click) — no passwords to chase.
+
+That's the whole trick: **one user, many devices, $0 forever.**
+
+### What if VPNs are not for you?
+
+- Meetings stay on **Jitsi** (free, already part of the hub) — nobody needs
+  remote access just to attend.
+- Or simply decide the hub is office-only. It works perfectly that way.
+
+### What NOT to do
+
+| Tempting shortcut | Why not |
+|---|---|
+| Port forwarding / DMZ on the router | Open to the whole internet; bots find it within hours |
+| "Dynamic DNS + port forward" packages from router vendors | Same open door, plus a recurring fee |
+| Business VPN subscriptions sold to clubs | $60–100+/year for what Tailscale does free |
+| Putting the hub on a $10–20/month cloud server | Your office PC already does the job for free |
+
+---
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -195,6 +258,7 @@ python3 doctor.py              (Windows: python doctor.py)
 | Flarum wizard never appears | Composer is missing. Install from https://getcomposer.org/download/, then run `python3 setup_apps.py` again. |
 | AI says "Local AI engine is not reachable" | You're in local mode but the model isn't downloaded. Run `python3 install.py` again (it finishes the downloads). |
 | Cloud mode says API key missing | Repeat Part 6 — the key is set per terminal window. |
+| Can't reach the hub from home | You need the private tunnel, not open ports. Install Tailscale on **both** machines and sign in with the same shared account (Part 9). Then use `http://office-pc:8090`. |
 | Everything else | `python3 doctor.py --yes` repairs venv, packages, downloads, and restarts services automatically. |
 
 ---
@@ -202,8 +266,9 @@ python3 doctor.py              (Windows: python doctor.py)
 ## Security for non-technical folks (read this bit!)
 
 - ✅ Everything only works **inside your office network**. Never "open
-  ports" on your router — remote members should use a VPN (Tailscale is
-  free: https://tailscale.com).
+  ports" on your router — for remote access use the private Tailscale
+  tunnel (free: https://tailscale.com). The **one-shared-account trick** in
+  Part 9 keeps it on the free tier no matter how many officers need in.
 - ✅ Turn on **disk encryption** (Windows: Settings → Privacy & Security →
   BitLocker. Ubuntu: tick "encrypt home folder" or use LUKS).
 - ✅ Turn on **automatic updates** for the operating system.
