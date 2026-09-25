@@ -79,7 +79,16 @@ or terminal and type `python --version` (Windows) or `python3 --version`
    | **1 — Retrieval-only** | Your documents are sensitive (financials, personal data). The assistant only quotes your documents back. Totally offline. *(Safest — recommended.)* |
    | **2 — Local AI** | You want full written answers, still 100% offline. Downloads a ~1–5 GB AI model. |
    | **3 — Cloud AI** | Documents are mostly public and you want the smartest answers. Needs a free API key (Part 6). |
-5. Wait for "Your blueprint" to print. Done!
+5. **Power Mode question** — the installer offers an optional AI agent layer
+   (free, MIT, ~200 MB RAM):
+   - **y** = members can chat with the hub from **Telegram on their phones**, the
+     assistant gains scheduling, automations, and long-term memory, and officers
+     get a full agent WebUI. You'll be offered a spot to paste a Telegram bot
+     token (create one free with **@BotFather** in Telegram in 2 minutes — or
+     skip and add it later).
+   - **Enter/N** = keep the hub ultra-light. You can add Power Mode any time:
+     `python3 install.py --with-agent`
+6. Wait for "Your blueprint" to print. Done!
 
 ---
 
@@ -236,6 +245,24 @@ That's the whole trick: **one user, many devices, $0 forever.**
 - Meetings stay on **Jitsi** (free, already part of the hub) — nobody needs
   remote access just to attend.
 - Or simply decide the hub is office-only. It works perfectly that way.
+
+### Talking to the hub from members' phones (Power Mode)
+
+If you enabled **Power Mode** during install (or ran
+`python3 install.py --with-agent`):
+
+1. In Telegram, message **@BotFather** → `/newbot` → give it a name like
+   *Riverside Garden Club* → copy the token it gives you.
+2. Paste the token into `data/nanobot/config.json` (look for the
+   `telegram` section: set `"enabled": true` and the token), or re-run the
+   installer and paste it when asked.
+3. Restart with `start-hub`. Members now just message your bot — questions
+   about fees, events, and bylaws get answered from your documents.
+
+The agent is **member-safe by default** (no shell/web tools). Officers can
+unlock more abilities for themselves in the same config file. Privacy note:
+chat messages travel over Telegram's servers — great for public info, keep
+confidential minutes on the office screen.
 
 ### What NOT to do
 

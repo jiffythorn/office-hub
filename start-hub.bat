@@ -87,7 +87,21 @@ if /i "%MODE%"=="local" if exist "ai\llama.cpp\llama-server.exe" (
 )
 :ai_done
 
-REM --- 4. glue API ----------------------------------------------------------------------
+REM --- 4. Power Mode agent (optional, chat apps + automations) -------------------------
+set "POWER=False"
+for /f "usebackq delims=" %%i in (`%PY% -c "import json;print(json.load(open('config.json')).get('power_mode', False))" 2^>nul`) do set "POWER=%%i"
+if /i "%POWER%"=="True" if exist ".venv-agent\Scripts\nanobot.exe" (
+  if exist "data\agent.pid" (
+    for /f %%p in (data\agent.pid) do tasklist /fi "pid eq %%p" 2>nul | find "%%p" >nul && (
+      echo [agent] already running ^(pid %%p^) & goto agent_done
+    )
+  )
+  start "Agent :18790" /min cmd /c ".venv-agent\Scripts\nanobot.exe gateway --foreground -c data\nanobot\config.json -w data\nanobot\workspace > data\agent.log 2>&1"
+  echo [agent] Power Mode ON ^(log: data\agent.log^) - add a Telegram token in data\nanobot\config.json to go live on phones
+)
+:agent_done
+
+REM --- 5. glue API ----------------------------------------------------------------------
 if exist "data\hub.pid" (
   for /f %%p in (data\hub.pid) do tasklist /fi "pid eq %%p" 2>nul | find "%%p" >nul && (
     echo [hub] AI API already running ^(pid %%p^) & goto done

@@ -1,5 +1,6 @@
 # never commit local state, downloads, or credentials
 .venv/
+.venv-agent/
 __pycache__/
 *.pyc
 

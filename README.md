@@ -95,6 +95,30 @@ scope it, `--no-system` to forbid sudo, `--check-only` for a plain report.
   `http://localhost:8090`. Answers cite their source files.
 - `POST /reindex` forces a rescan; `GET /health` shows mode + index stats.
 
+## Power Mode (optional): the AI powerhouse layer
+
+At install you're asked one extra question: **enable Power Mode?** It adds
+[nanobot](https://github.com/HKUDS/nanobot) (MIT, 48k★) as an agent layer on
+top of the same privacy mode you chose — nothing else changes:
+
+- **Members chat from their phones** — a Telegram bot (free, 2-min setup with
+  @BotFather) answers questions from your documents. Discord, Slack, email,
+  Matrix and more are supported too. Members install nothing new.
+- **Automations** — "every Monday, summarize new documents and email the board."
+- **Long-term memory** and a full **agent WebUI** (`nanobot webui`) for officers.
+- **Member-safe by default**: the generated config disables shell/web tools and
+  restricts the agent to its workspace. Officers can re-enable tools for
+  themselves in `data/nanobot/config.json`.
+- Uses the **same engine** (local llama.cpp or cloud) — the privacy choice is
+  preserved. Costs ~200 MB RAM extra.
+
+Install it any time with `python3 install.py --with-agent` (or answer **y** at
+the prompt). The doctor knows how to repair it. Skip it and the hub stays the
+ultra-light blueprint.
+
+> Note: Telegram/Discord messages transit those services' servers. Fine for
+> bylaws/fees/events; keep confidential minutes on the office LAN.
+
 ## Switching privacy mode later
 
 ```bash
@@ -140,7 +164,8 @@ substitute Qwen **2.5-3B** (Qwen research license) or Meta Llama models
 ## Project layout
 
 ```
-install.py            smart installer (audit -> decide -> privacy -> model)
+install.py            smart installer (audit -> decide -> privacy -> power mode -> model)
+.venv-agent/          optional nanobot agent (Power Mode: chat apps, automations)
 check_deps.py         readiness checker used by installer AND all start scripts
 doctor.py              check + auto-repair + restart (python3 doctor.py --yes)
 INSTALL_GUIDE.md       plain-English setup guide for non-technical users

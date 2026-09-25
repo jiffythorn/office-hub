@@ -105,6 +105,34 @@ def check_cloud(cfg):
             f"export {env_name}=<your free key>  before starting the hub")
 
 
+def check_agent(cfg):
+    """Power Mode (optional nanobot agent layer)."""
+    if not cfg.get("power_mode"):
+        return
+    apy = ROOT / ".venv-agent" / ("Scripts/python.exe" if IS_WIN else "bin/nanobot")
+    nanobot_bin = ROOT / ".venv-agent" / ("Scripts/nanobot.exe" if IS_WIN else "bin/nanobot")
+    if nanobot_bin.exists():
+        add("OK", "Power Mode agent (nanobot)")
+    else:
+        add("FAIL", "Power Mode agent", "nanobot not installed in .venv-agent",
+            "python3 install.py --with-agent  (or: python3 doctor.py)")
+    acfg = ROOT / "data" / "nanobot" / "config.json"
+    if acfg.exists():
+        add("OK", "agent config (data/nanobot/config.json)")
+        try:
+            c = json.loads(acfg.read_text())
+            tg = c.get("channels", {}).get("telegram", {})
+            if tg.get("enabled") and tg.get("token"):
+                add("OK", "Telegram channel: live")
+            else:
+                add("INFO", "Telegram channel: off",
+                    "add a @BotFather token in data/nanobot/config.json to let members chat from phones")
+        except Exception:
+            pass
+    else:
+        add("FAIL", "agent config", "data/nanobot/config.json missing", "python3 doctor.py")
+
+
 def check_hub(cfg):
     check_python()
     check_venv()
@@ -119,6 +147,7 @@ def check_hub(cfg):
         add("OK", "retrieval-only mode: no extra AI dependencies")
     else:
         add("FAIL", "privacy_mode", f"unknown value {mode!r}", "Re-run install.py")
+    check_agent(cfg)
 
 
 # --------------------------------------------------------------- apps section

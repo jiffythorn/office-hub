@@ -146,6 +146,9 @@ def status_page():
          "only used in local privacy mode"),
         ("Office Hub API (this page)", cfg["server"]["port"], "http://localhost:8090"),
     ]
+    if cfg.get("power_mode"):
+        services.append(("Agent gateway (Power Mode)", 18790,
+                         "chat apps + automations (nanobot)"))
     rows = ""
     for name, port, where in services:
         if port is None:

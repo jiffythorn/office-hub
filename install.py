@@ -41,6 +41,8 @@ import check_deps
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.json"
 VENV_DIR = ROOT / ".venv"
+AGENT_VENV = ROOT / ".venv-agent"
+AGENT_DIR = ROOT / "data" / "nanobot"
 AI_DIR = ROOT / "ai"
 MODELS_DIR = AI_DIR / "models"
 LLAMA_DIR = AI_DIR / "llama.cpp"
@@ -257,6 +259,94 @@ def offer_system_install(a, args):
         print("\n  [setup] Done - the readiness check at the end will confirm.")
 
 
+# ----------------------------------------------------------------------------
+# POWER MODE - optional nanobot agent (chat apps, tools, automations, memory)
+# ----------------------------------------------------------------------------
+
+def agent_config(cfg, bot_name):
+    """Build nanobot's config.json, wired to the hub's own AI endpoints."""
+    mode = cfg["privacy_mode"]
+    if mode == "local":
+        la = cfg["local_ai"]
+        provider_cfg = {"apiKey": "local", "apiBase": f"http://{la['host']}:{la['port']}/v1"}
+        model = "local/qwen"
+    elif mode == "cloud":
+        import os
+        provider_cfg = {"apiKey": os.environ.get(cfg["cloud"]["api_key_env"], "") or None,
+                        "apiBase": cfg["cloud"]["base_url"]}
+        model = f"custom/{cfg['cloud']['model']}"
+    else:  # retrieval_only -> default to local llama.cpp if present, else cloud shape
+        la = cfg["local_ai"]
+        provider_cfg = {"apiKey": "local", "apiBase": f"http://{la['host']}:{la['port']}/v1"}
+        model = "local/qwen"
+    return {
+        "agents": {"defaults": {
+            "workspace": str(AGENT_DIR / "workspace"),
+            "model": model, "provider": "custom",
+            "maxTokens": 2048, "temperature": 0.2,
+            "botName": bot_name, "botIcon": "🌱",
+            "dream": {"enabled": False},
+        }},
+        "providers": {"custom": provider_cfg},
+        "channels": {
+            "sendProgress": True, "sendToolHints": False, "showReasoning": False,
+            "telegram": {"enabled": False, "token": "", "allowFrom": []},
+        },
+        # Member-safe tool policy: chat + files in the workspace only.
+        # The installer prints how officers can re-enable exec for the officer bot.
+        "tools": {
+            "web": {"enable": False},
+            "exec": {"enable": False},
+            "file": {"enable": True},
+            "restrictToWorkspace": True,
+        },
+        "api": {"host": "127.0.0.1", "port": 8900, "apiKey": ""},
+        "gateway": {"host": "127.0.0.1", "port": 18790},
+    }
+
+
+def setup_agent(cfg, interactive=True):
+    """Install + configure the nanobot agent layer. Returns True on success."""
+    print("  Installing nanobot into its own venv (.venv-agent) ...")
+    if not AGENT_VENV.exists():
+        venv.EnvBuilder(with_pip=True).create(AGENT_VENV)
+    apy = AGENT_VENV / ("Scripts/python.exe" if platform.system() == "Windows" else "bin/python")
+    try:
+        subprocess.check_call([str(apy), "-m", "pip", "install", "--quiet", "nanobot-ai"])
+    except subprocess.CalledProcessError:
+        print("  WARNING: nanobot install failed (Python 3.11+ required for Power Mode). "
+              "The rest of the hub is unaffected; re-run install.py later to retry.")
+        return False
+
+    bot_name = "Club Assistant"
+    tg_token = ""
+    if interactive:
+        raw = ask("  Name the assistant (Enter = Club Assistant): ", "Club Assistant")
+        bot_name = raw or "Club Assistant"
+        print("\n  Optional: connect Telegram so members can chat from their phones.")
+        print("  Create a free bot in Telegram with @BotFather (2 min), then paste")
+        print("  the token here - or leave blank and add it later in")
+        print(f"  {AGENT_DIR / 'config.json'}")
+        tg_token = ask("  Telegram bot token (blank = skip): ").strip()
+
+    cfgd = agent_config(cfg, bot_name)
+    if tg_token:
+        cfgd["channels"]["telegram"]["enabled"] = True
+        cfgd["channels"]["telegram"]["token"] = tg_token
+
+    AGENT_DIR.mkdir(parents=True, exist_ok=True)
+    (AGENT_DIR / "workspace").mkdir(exist_ok=True)
+    (AGENT_DIR / "config.json").write_text(json.dumps(cfgd, indent=2))
+    print(f"  Agent config: {AGENT_DIR / 'config.json'}")
+    if not tg_token:
+        print("  Telegram not configured - members chat stays OFF until you add a")
+        print("  token in the config above and run start-hub again.")
+    print("  Tool policy: chat + workspace files only (member-safe). Officers can")
+    print(f"  enable shell/web tools for themselves in {AGENT_DIR / 'config.json'} "
+          "(tools.exec.enable).")
+    return True
+
+
 def pick_model(a):
     """Best Apache-2.0 Qwen that fits, with headroom for the office desktop."""
     ram_gb = a["ram_total_mb"] / 1024.0
@@ -323,7 +413,7 @@ def install_deps():
 # 6. CONFIG
 # ----------------------------------------------------------------------------
 
-def write_config(a, privacy_mode, model, cloud, py):
+def write_config(a, privacy_mode, model, cloud, py, power=False):
     threads = max(2, (a["cpu_cores"] or 4) - 2)
     system = platform.system()
     llama_bin = {
@@ -335,6 +425,7 @@ def write_config(a, privacy_mode, model, cloud, py):
     cfg = {
         "version": 1,
         "privacy_mode": privacy_mode,
+        "power_mode": power,
         "python": str(py.relative_to(ROOT)),
         "cloud": {
             "base_url": (cloud or {}).get("base_url", ""),
@@ -459,6 +550,8 @@ def main():
     ap.add_argument("--yes", action="store_true", help="accept all recommended defaults")
     ap.add_argument("--privacy", choices=["1", "2", "3"], help="pre-select privacy level")
     ap.add_argument("--skip-models", action="store_true", help="offline install: skip downloads")
+    ap.add_argument("--with-agent", action="store_true",
+                    help="install the optional nanobot agent layer (chat apps, tools, automations)")
     ap.add_argument("--auto-install-system", action="store_true",
                     help="install missing system packages (PHP, MariaDB, gh) via the OS package manager")
     ap.add_argument("--auto-cloud", action="store_true",
@@ -495,6 +588,22 @@ def main():
     privacy_mode = PRIVACY_LEVELS[["1", "2", "3"][pi]]["mode"]
     print(f"  >> Privacy mode: {privacy_mode.upper()}")
 
+    power = False
+    if args.with_agent:
+        power = True
+        print("  >> Power Mode: ON (--with-agent)")
+    elif args.yes:
+        power = False
+    else:
+        print("\n  POWER MODE adds an AI agent layer (nanobot, MIT, free):")
+        print("   - members chat with the hub from Telegram/Discord on their phones")
+        print("   - scheduled automations ('every Monday, summarize new documents')")
+        print("   - long-term memory and a full agent WebUI for officers")
+        print("   - uses the SAME privacy mode you just picked; adds ~200 MB RAM")
+        raw = ask("  Enable Power Mode? [y/N] ", "n").lower()
+        power = raw.startswith("y")
+    print(f"  >> Power Mode: {'ON' if power else 'off (simple hub)'}")
+
     hr("STEP 4 - AI model selection")
     model = pick_model(a)
     cloud = None
@@ -521,7 +630,19 @@ def main():
     py = install_deps()
 
     hr("STEP 6 - Writing configuration")
-    cfg = write_config(a, privacy_mode, model if privacy_mode == "local" else None, cloud, py)
+    cfg = write_config(a, privacy_mode, model if privacy_mode == "local" else None, cloud, py,
+                       power=power)
+
+    if power:
+        hr("STEP 6b - Power Mode agent (nanobot)")
+        if privacy_mode == "retrieval_only":
+            print("  NOTE: in retrieval-only mode there is no generative model, so the")
+            print("  agent can index/chat but cannot write answers. For full Power Mode,")
+            print("  re-run install.py and choose privacy option 2 (local AI).")
+        if not setup_agent(cfg, interactive=not args.yes):
+            cfg["power_mode"] = False
+            CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
+            print("  Power Mode disabled in config - the simple hub is unaffected.")
 
     if not args.skip_models and privacy_mode == "local":
         hr("STEP 7 - Downloading AI stack (one-time)")
@@ -543,6 +664,7 @@ def main():
     hr("STEP 9 - Done. Your blueprint:")
     print(f"""
   Privacy mode      : {privacy_mode}
+  Power Mode        : {'ON - agent + chat apps enabled' if cfg.get('power_mode') else 'off'}
   AI engine         : {cfg['model_label'] or ('cloud: ' + cfg['cloud']['model'] if privacy_mode == 'cloud' else 'retrieval-only (documents only)')}
   Documents folder  : {ROOT / 'documents'}   <- drop club PDFs/text here
   AI web API        : http://localhost:{cfg['server']['port']}  (chat UI at / )

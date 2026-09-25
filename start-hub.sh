@@ -79,7 +79,24 @@ if [ "$MODE" = "local" ] && [ -f "ai/llama.cpp/llama-server" ]; then
   fi
 fi
 
-# --- 4. glue API ----------------------------------------------------------------
+# --- 4. Power Mode agent (optional, chat apps + automations) --------------------
+POWER="$($PY -c "import json;print(json.load(open('config.json')).get('power_mode', False))" 2>/dev/null || echo False)"
+if [ "$POWER" = "True" ] && [ -x ".venv-agent/bin/nanobot" ]; then
+  if alive data/agent.pid; then
+    echo "[agent] already running (pid $(cat data/agent.pid))"
+  else
+    nohup .venv-agent/bin/nanobot gateway --foreground \
+      -c data/nanobot/config.json -w data/nanobot/workspace > data/agent.log 2>&1 &
+    echo $! > data/agent.pid
+    if $PY -c "import json;c=json.load(open('data/nanobot/config.json'));exit(0 if c['channels']['telegram']['enabled'] else 1)" 2>/dev/null; then
+      echo "[agent] Power Mode ON - Telegram bot live (log: data/agent.log)"
+    else
+      echo "[agent] Power Mode ON - add a Telegram token in data/nanobot/config.json to go live on phones"
+    fi
+  fi
+fi
+
+# --- 5. glue API ----------------------------------------------------------------
 if alive data/hub.pid; then
   echo "[hub] AI API already running (pid $(cat data/hub.pid))"
 else

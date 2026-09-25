@@ -25,6 +25,7 @@ Usage:
 """
 
 import argparse
+import json
 import platform
 import subprocess
 import sys
@@ -129,6 +130,32 @@ def repair_mariadb_running(args):
     subprocess.run(["sudo", "systemctl", "start", "mariadb"])
 
 
+def repair_agent(cfg):
+    """(Re)install nanobot and regenerate its config, preserving Telegram token."""
+    apy = ROOT / ".venv-agent" / ("Scripts/python.exe" if IS_WIN else "bin/python")
+    if not apy.exists():
+        import venv
+        venv.EnvBuilder(with_pip=True).create(ROOT / ".venv-agent")
+    subprocess.run([str(apy), "-m", "pip", "install", "--quiet", "nanobot-ai"])
+    # preserve any existing telegram token
+    tg_token, tg_enabled = "", False
+    acfg = ROOT / "data" / "nanobot" / "config.json"
+    if acfg.exists():
+        try:
+            old = json.loads(acfg.read_text())
+            tg = old.get("channels", {}).get("telegram", {})
+            tg_token, tg_enabled = tg.get("token", ""), tg.get("enabled", False)
+        except Exception:
+            pass
+    cfgd = installer.agent_config(cfg, "Club Assistant")
+    if tg_token:
+        cfgd["channels"]["telegram"] = {"enabled": tg_enabled, "token": tg_token, "allowFrom": []}
+    (ROOT / "data" / "nanobot").mkdir(parents=True, exist_ok=True)
+    (ROOT / "data" / "nanobot" / "workspace").mkdir(exist_ok=True)
+    (ROOT / "data" / "nanobot" / "config.json").write_text(json.dumps(cfgd, indent=2))
+    note("agent reinstalled and config regenerated (Telegram token preserved)")
+
+
 def repair_admidio():
     setup_apps.fetch_admidio()
 
@@ -164,6 +191,9 @@ def run_repairs(sections, cfg, args):
             repair_system("php", args)
         elif name == "MariaDB":
             repair_system("mariadb", args)
+        elif name == "Power Mode agent" or name == "agent config":
+            repair_agent(cfg)
+            done.append(name)
         elif name == "apps/admidio":
             repair_admidio()
             done.append(name)
