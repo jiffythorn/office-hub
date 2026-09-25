@@ -1,0 +1,20 @@
+RIVERSIDE GARDEN CLUB — DUES POLICY (officer reference)
+
+AMOUNTS
+- Annual membership dues: $25 per household, payable by March 1 each year.
+- Members joining after September 1 pay half dues ($12.50) for the rest of the year.
+- Garden plot fees (separate): $40 per season, due April 1.
+
+HOW MEMBERS PAY
+- Cash or check at any monthly meeting (treasurer issues a receipt on the spot)
+- Check by mail: Riverside Garden Club, PO Box 214
+- (online payments: not available yet)
+
+WHEN A HOUSEHOLD IS BEHIND
+- March 15: friendly reminder email from the treasurer
+- April 1: second reminder; plot renewals pause until dues are current
+- April 15: membership lapses; rejoining requires full-year dues again
+
+WHAT THE BOT MAY DO
+- The dues follow-up automation DRAFTS reminder messages for the treasurer
+  to review and send. It never messages members by itself.
