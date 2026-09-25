@@ -64,7 +64,10 @@ MODEL_CATALOG = [
     },
     {
         "key": "qwen2.5-7b-instruct-q4_k_m.gguf",
-        "url": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf",
+        "model_file": "qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf",
+        "urls": ["https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf",
+                 "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf"],
+        "url": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf",
         "label": "Qwen2.5 7B Instruct (Q4_K_M)",
         "ram_gb": 6.0, "size_gb": 4.7, "quality": 3,
     },
@@ -460,7 +463,8 @@ def write_config(a, privacy_mode, model, cloud, py, power=False):
         },
         "local_ai": {
             "llamacpp_path": llama_bin,
-            "model_path": f"ai/models/{model['key']}" if model else "",
+            "model_path": (f"ai/models/{model.get('model_file', model['key'])}"
+                           if model else ""),
             "host": "127.0.0.1", "port": 8082,
             "ctx": 4096, "threads": threads, "gpu_layers": 0,
         },
@@ -516,12 +520,25 @@ def download_llamacpp():
         print(f"  SKIP: no prebuilt llama.cpp pattern for {system}")
         return False
     LLAMA_DIR.mkdir(parents=True, exist_ok=True)
-    tag = subprocess.check_output(
-        ["gh", "release", "view", "--repo", "ggml-org/llama.cpp", "--json", "tagName",
-         "-q", ".tagName"], text=True).strip()
+    # NOTE: the repo's 'latest' release (v0.5.0) is a stub with no binaries -
+    # real assets live on per-build releases tagged bNNNNN.
+    tags = subprocess.check_output(
+        ["gh", "release", "list", "--repo", "ggml-org/llama.cpp", "--limit", "15"],
+        text=True).splitlines()
+    tag = next((line.split()[0] for line in tags
+                if line.split() and line.split()[0].startswith("b")), "")
+    if not tag:
+        print("  WARNING: no llama.cpp build release found - grab llama-server "
+              "manually from github.com/ggml-org/llama.cpp/releases")
+        return False
     print(f"  Fetching llama.cpp {tag} ({pattern}) via gh ...")
-    subprocess.check_call(["gh", "release", "download", tag, "--repo", "ggml-org/llama.cpp",
-                           "--pattern", pattern, "--clobber"], cwd=LLAMA_DIR)
+    try:
+        subprocess.check_call(["gh", "release", "download", tag, "--repo", "ggml-org/llama.cpp",
+                               "--pattern", pattern, "--clobber"], cwd=LLAMA_DIR)
+    except subprocess.CalledProcessError as e:
+        print(f"  WARNING: gh download failed ({e.returncode}) - grab llama-server "
+              "manually from github.com/ggml-org/llama.cpp/releases")
+        return False
     archive = next(LLAMA_DIR.glob(pattern), None)
     if archive is None:
         print("  WARNING: no llama.cpp archive matched the download pattern - "
@@ -535,17 +552,17 @@ def download_llamacpp():
             with zipfile.ZipFile(LLAMA_DIR / archive.name) as z:
                 z.extractall(LLAMA_DIR)
     else:
-        subprocess.check_call(["tar", "-xzf", archive.name], cwd=LLAMA_DIR)
+        # --strip-components=1 drops the archive's wrapper dir so the binary
+        # and its .so/.dll libraries land together (symlinks preserved).
+        subprocess.check_call(["tar", "-xzf", archive.name,
+                               "--strip-components=1", "-C", "."], cwd=LLAMA_DIR)
     archive.unlink()
-    # locate or hoist llama-server
     exe = "llama-server.exe" if system == "Windows" else "llama-server"
-    found = next(LLAMA_DIR.rglob(exe), None)
-    if found and found.parent != LLAMA_DIR:
-        shutil.move(str(found), LLAMA_DIR / exe)
-    if found:
+    found = LLAMA_DIR / exe
+    if found.exists():
         if system != "Windows":
-            os.chmod(LLAMA_DIR / exe, 0o755)
-        print(f"  OK: {LLAMA_DIR / exe}")
+            os.chmod(found, 0o755)
+        print(f"  OK: {found}")
         return True
     print("  WARNING: llama-server not found in archive - check ai/llama.cpp/")
     return False
@@ -553,16 +570,20 @@ def download_llamacpp():
 
 def download_model(model):
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    dest = MODELS_DIR / model["key"]
-    if dest.exists():
-        print(f"  Model already present: {dest.name}")
-        return True
-    print(f"  Model: {model['label']}  (~{model['size_gb']} GB download)")
+    urls = model.get("urls", [model["url"]])
     try:
-        download_file(model["url"], dest)
+        for url in urls:
+            dest = MODELS_DIR / url.split("/")[-1]
+            if dest.exists():
+                print(f"  Model part already present: {dest.name}")
+                continue
+            print(f"  Model: {model['label']}  part {dest.name} "
+                  f"(~{model['size_gb'] / max(1, len(urls)):.1f} GB)")
+            download_file(url, dest)
         return True
     except Exception as e:
-        print(f"\n  DOWNLOAD FAILED: {e}\n  You can retry later or place the file manually at: {dest}")
+        print(f"\n  DOWNLOAD FAILED: {e}\n  You can retry later or place the files "
+              f"manually in: {MODELS_DIR}")
         return False
 
 
