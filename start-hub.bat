@@ -97,7 +97,7 @@ if /i "%POWER%"=="True" if exist ".venv-agent\Scripts\nanobot.exe" (
     )
   )
   start "Agent :18790" /min cmd /c ".venv-agent\Scripts\nanobot.exe gateway --foreground -c data\nanobot\config.json -w data\nanobot\workspace > data\agent.log 2>&1"
-  echo [agent] Power Mode ON ^(log: data\agent.log^) - add a Telegram token in data\nanobot\config.json to go live on phones
+  echo [agent] Power Mode ON ^(log: data\agent.log^) - add a Telegram/Discord token in data\nanobot\config.json to go live on phones
 )
 :agent_done
 

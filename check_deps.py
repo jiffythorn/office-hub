@@ -121,12 +121,15 @@ def check_agent(cfg):
         add("OK", "agent config (data/nanobot/config.json)")
         try:
             c = json.loads(acfg.read_text())
-            tg = c.get("channels", {}).get("telegram", {})
-            if tg.get("enabled") and tg.get("token"):
-                add("OK", "Telegram channel: live")
+            chans = c.get("channels", {})
+            live = [n for n in ("telegram", "discord")
+                    if chans.get(n, {}).get("enabled") and chans.get(n, {}).get("token")]
+            if live:
+                add("OK", f"chat channel(s) live: {', '.join(live)}")
             else:
-                add("INFO", "Telegram channel: off",
-                    "add a @BotFather token in data/nanobot/config.json to let members chat from phones")
+                add("INFO", "chat channels: off",
+                    "add a Telegram (@BotFather) or Discord token in "
+                    "data/nanobot/config.json to let members chat from phones")
         except Exception:
             pass
     else:

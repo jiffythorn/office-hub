@@ -101,9 +101,9 @@ At install you're asked one extra question: **enable Power Mode?** It adds
 [nanobot](https://github.com/HKUDS/nanobot) (MIT, 48k★) as an agent layer on
 top of the same privacy mode you chose — nothing else changes:
 
-- **Members chat from their phones** — a Telegram bot (free, 2-min setup with
-  @BotFather) answers questions from your documents. Discord, Slack, email,
-  Matrix and more are supported too. Members install nothing new.
+- **Members chat from their phones** — a Telegram or Discord bot (free, 2-min
+  setup) answers questions from your documents. Slack, email, Matrix and more
+  are supported too. Members install nothing new.
 - **Automations** — "every Monday, summarize new documents and email the board."
 - **Long-term memory** and a full **agent WebUI** (`nanobot webui`) for officers.
 - **Member-safe by default**: the generated config disables shell/web tools and
@@ -169,6 +169,7 @@ install.py            smart installer (audit -> decide -> privacy -> power mode 
 check_deps.py         readiness checker used by installer AND all start scripts
 doctor.py              check + auto-repair + restart (python3 doctor.py --yes)
 INSTALL_GUIDE.md       plain-English setup guide for non-technical users
+POWER_MODE_GUIDE.md    officer handbook: chat bots, testing, officer tools
 install.sh / .bat     one-click wrappers
 start-hub.sh / .bat   ONE script starts the whole blueprint in order:
                          MariaDB -> Admidio -> Flarum -> llama.cpp -> AI API

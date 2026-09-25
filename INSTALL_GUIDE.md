@@ -81,11 +81,12 @@ or terminal and type `python --version` (Windows) or `python3 --version`
    | **3 — Cloud AI** | Documents are mostly public and you want the smartest answers. Needs a free API key (Part 6). |
 5. **Power Mode question** — the installer offers an optional AI agent layer
    (free, MIT, ~200 MB RAM):
-   - **y** = members can chat with the hub from **Telegram on their phones**, the
-     assistant gains scheduling, automations, and long-term memory, and officers
-     get a full agent WebUI. You'll be offered a spot to paste a Telegram bot
-     token (create one free with **@BotFather** in Telegram in 2 minutes — or
-     skip and add it later).
+   - **y** = members can chat with the hub from **Telegram or Discord on their
+     phones**, the assistant gains scheduling, automations, and long-term
+     memory, and officers get a full agent WebUI. You'll be asked which
+     channel(s) to connect and can paste a bot token right there (Telegram:
+     free via **@BotFather** in 2 minutes; Discord: via the developer portal —
+     see POWER_MODE_GUIDE.md), or skip and add them later.
    - **Enter/N** = keep the hub ultra-light. You can add Power Mode any time:
      `python3 install.py --with-agent`
 6. Wait for "Your blueprint" to print. Done!
@@ -248,21 +249,21 @@ That's the whole trick: **one user, many devices, $0 forever.**
 
 ### Talking to the hub from members' phones (Power Mode)
 
-If you enabled **Power Mode** during install (or ran
-`python3 install.py --with-agent`):
+See **[POWER_MODE_GUIDE.md](POWER_MODE_GUIDE.md)** for the full officer
+walkthrough (Telegram and Discord, testing from a phone, and safely
+unlocking officer tools). The short version:
 
-1. In Telegram, message **@BotFather** → `/newbot` → give it a name like
-   *Riverside Garden Club* → copy the token it gives you.
-2. Paste the token into `data/nanobot/config.json` (look for the
-   `telegram` section: set `"enabled": true` and the token), or re-run the
-   installer and paste it when asked.
+1. Get a bot token — Telegram: message **@BotFather** → `/newbot`; Discord:
+   create an app at discord.com/developers/applications → Bot → Reset Token.
+2. Put the token in `data/nanobot/config.json` (set `"enabled": true` in the
+   matching section), or re-run the installer and paste it when asked.
 3. Restart with `start-hub`. Members now just message your bot — questions
    about fees, events, and bylaws get answered from your documents.
 
 The agent is **member-safe by default** (no shell/web tools). Officers can
 unlock more abilities for themselves in the same config file. Privacy note:
-chat messages travel over Telegram's servers — great for public info, keep
-confidential minutes on the office screen.
+chat messages travel over Telegram's or Discord's servers — great for public
+info, keep confidential minutes on the office screen.
 
 ### What NOT to do
 

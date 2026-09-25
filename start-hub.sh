@@ -88,10 +88,11 @@ if [ "$POWER" = "True" ] && [ -x ".venv-agent/bin/nanobot" ]; then
     nohup .venv-agent/bin/nanobot gateway --foreground \
       -c data/nanobot/config.json -w data/nanobot/workspace > data/agent.log 2>&1 &
     echo $! > data/agent.pid
-    if $PY -c "import json;c=json.load(open('data/nanobot/config.json'));exit(0 if c['channels']['telegram']['enabled'] else 1)" 2>/dev/null; then
-      echo "[agent] Power Mode ON - Telegram bot live (log: data/agent.log)"
+    CHAN="$($PY -c "import json;c=json.load(open('data/nanobot/config.json'))['channels'];print(', '.join(n for n in ('telegram','discord') if c.get(n,{}).get('enabled') and c.get(n,{}).get('token')) or 'none')" 2>/dev/null || echo none)"
+    if [ "$CHAN" != "none" ]; then
+      echo "[agent] Power Mode ON - chat live on: $CHAN (log: data/agent.log)"
     else
-      echo "[agent] Power Mode ON - add a Telegram token in data/nanobot/config.json to go live on phones"
+      echo "[agent] Power Mode ON - add a Telegram/Discord token in data/nanobot/config.json to go live on phones"
     fi
   fi
 fi

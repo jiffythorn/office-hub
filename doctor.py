@@ -137,23 +137,26 @@ def repair_agent(cfg):
         import venv
         venv.EnvBuilder(with_pip=True).create(ROOT / ".venv-agent")
     subprocess.run([str(apy), "-m", "pip", "install", "--quiet", "nanobot-ai"])
-    # preserve any existing telegram token
-    tg_token, tg_enabled = "", False
+    # preserve any existing chat-channel tokens (telegram/discord)
+    keep = {}
     acfg = ROOT / "data" / "nanobot" / "config.json"
     if acfg.exists():
         try:
             old = json.loads(acfg.read_text())
-            tg = old.get("channels", {}).get("telegram", {})
-            tg_token, tg_enabled = tg.get("token", ""), tg.get("enabled", False)
+            for n in ("telegram", "discord"):
+                ch = old.get("channels", {}).get(n, {})
+                if ch.get("token"):
+                    keep[n] = {"enabled": ch.get("enabled", False), "token": ch["token"],
+                               "allowFrom": ch.get("allowFrom", [])}
         except Exception:
             pass
     cfgd = installer.agent_config(cfg, "Club Assistant")
-    if tg_token:
-        cfgd["channels"]["telegram"] = {"enabled": tg_enabled, "token": tg_token, "allowFrom": []}
+    for n, ch in keep.items():
+        cfgd["channels"][n] = ch
     (ROOT / "data" / "nanobot").mkdir(parents=True, exist_ok=True)
     (ROOT / "data" / "nanobot" / "workspace").mkdir(exist_ok=True)
     (ROOT / "data" / "nanobot" / "config.json").write_text(json.dumps(cfgd, indent=2))
-    note("agent reinstalled and config regenerated (Telegram token preserved)")
+    note("agent reinstalled and config regenerated (chat tokens preserved)")
 
 
 def repair_admidio():

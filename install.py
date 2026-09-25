@@ -291,6 +291,8 @@ def agent_config(cfg, bot_name):
         "channels": {
             "sendProgress": True, "sendToolHints": False, "showReasoning": False,
             "telegram": {"enabled": False, "token": "", "allowFrom": []},
+            "discord": {"enabled": False, "token": "", "allowFrom": [],
+                        "allowChannels": [], "groupPolicy": "mention"},
         },
         # Member-safe tool policy: chat + files in the workspace only.
         # The installer prints how officers can re-enable exec for the officer bot.
@@ -320,27 +322,40 @@ def setup_agent(cfg, interactive=True):
 
     bot_name = "Club Assistant"
     tg_token = ""
+    dc_token = ""
     if interactive:
         raw = ask("  Name the assistant (Enter = Club Assistant): ", "Club Assistant")
         bot_name = raw or "Club Assistant"
-        print("\n  Optional: connect Telegram so members can chat from their phones.")
-        print("  Create a free bot in Telegram with @BotFather (2 min), then paste")
-        print("  the token here - or leave blank and add it later in")
-        print(f"  {AGENT_DIR / 'config.json'}")
-        tg_token = ask("  Telegram bot token (blank = skip): ").strip()
+        print("\n  Optional: let members chat with the hub from their phones.")
+        print("   1) Telegram - create the bot with @BotFather inside Telegram (2 min)")
+        print("   2) Discord  - create an app at discord.com/developers/applications,")
+        print("      Bot tab -> Reset Token -> copy, then invite it to your server")
+        print("   3) Both     4) Skip (add later - see POWER_MODE_GUIDE.md)")
+        pick = ask("  Which chat channel(s)? [1-4, Enter = 4]: ", "4").strip()
+        if pick in ("1", "3"):
+            tg_token = ask("    Telegram bot token: ").strip()
+        if pick in ("2", "3"):
+            dc_token = ask("    Discord bot token: ").strip()
 
     cfgd = agent_config(cfg, bot_name)
     if tg_token:
         cfgd["channels"]["telegram"]["enabled"] = True
         cfgd["channels"]["telegram"]["token"] = tg_token
+    if dc_token:
+        cfgd["channels"]["discord"]["enabled"] = True
+        cfgd["channels"]["discord"]["token"] = dc_token
 
     AGENT_DIR.mkdir(parents=True, exist_ok=True)
     (AGENT_DIR / "workspace").mkdir(exist_ok=True)
     (AGENT_DIR / "config.json").write_text(json.dumps(cfgd, indent=2))
     print(f"  Agent config: {AGENT_DIR / 'config.json'}")
-    if not tg_token:
-        print("  Telegram not configured - members chat stays OFF until you add a")
-        print("  token in the config above and run start-hub again.")
+    if tg_token or dc_token:
+        which = ", ".join(n for n, t in (("Telegram", tg_token), ("Discord", dc_token)) if t)
+        print(f"  Chat channel(s) configured: {which} - members can message after")
+        print("  you run start-hub (restart if it is already running).")
+    else:
+        print("  No chat channel configured yet - add a Telegram or Discord token in")
+        print(f"  {AGENT_DIR / 'config.json'} later, then restart the hub.")
     print("  Tool policy: chat + workspace files only (member-safe). Officers can")
     print(f"  enable shell/web tools for themselves in {AGENT_DIR / 'config.json'} "
           "(tools.exec.enable).")
