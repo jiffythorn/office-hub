@@ -1,0 +1,244 @@
+# Office Hub — Installation Guide
+
+**For clubs, HOAs, non-profits, and community organizations**
+*A plain-English walkthrough from an empty computer to your first AI answer.*
+
+| | |
+|---|---|
+| **Version** | 1.0 |
+| **Time needed** | 45–75 minutes (most of it is waiting for downloads) |
+| **Who does this** | The person setting up the office computer. No coding needed. |
+| **Cost** | $0 in software. Every component is free and open source. |
+
+---
+
+## What you are installing
+
+One normal office computer becomes your organization's digital hub:
+
+| Piece | What your members use it for | Where |
+|---|---|---|
+| **AI Assistant** | Ask questions about your documents ("what are the dues?") | http://localhost:8090 |
+| **Member portal** (Admidio) | Member list, dues, events, groups | http://localhost:8080 |
+| **Forum** (Flarum) | Discussions, announcements, private messages | http://localhost:8081 |
+| **Video meetings** | Free Jitsi rooms, nothing to install | meet.jit.si |
+
+Everything runs on that one computer. Nothing is sent to the cloud unless
+you choose the "cloud" privacy option during setup.
+
+---
+
+## Before you start — checklist
+
+- [ ] A Windows 10/11 or Ubuntu/Linux computer that stays switched on
+- [ ] At least **8 GB RAM** (4 GB works without the local AI)
+- [ ] **10 GB free disk space** (more if you pick the local AI)
+- [ ] Internet connection (only needed during installation)
+- [ ] The **Office Hub folder** downloaded from the project's GitHub page
+      (it contains this guide)
+
+---
+
+## Part 1 — Install Python (5 minutes)
+
+### Windows
+1. Open your browser and go to **https://www.python.org/downloads/**
+2. Click the big yellow **Download Python** button.
+3. Run the downloaded file. **IMPORTANT:** on the first screen, tick the box
+   that says **"Add python.exe to PATH"** before clicking *Install Now*.
+4. When it says *Setup was successful*, close the window.
+
+### Linux (Ubuntu)
+Open a terminal (Ctrl+Alt+T) and type:
+```
+sudo apt install python3 python3-venv python3-pip
+```
+Enter your password when asked.
+
+**Check it worked:** open a new Command Prompt (Windows: Start → type `cmd`)
+or terminal and type `python --version` (Windows) or `python3 --version`
+(Linux). You want to see a number like 3.11 or 3.12.
+
+---
+
+## Part 2 — One-click install (10 minutes)
+
+1. Open the **Office Hub folder** (the one you downloaded from GitHub — the
+   green **Code** button → *Download ZIP*, then unzip).
+2. Double-click:
+   - **Windows:** `install.bat`
+   - **Linux:** right-click in the folder → *Open Terminal* → type `./install.sh`
+3. The installer will **check your computer** and print what it finds.
+   If it lists something as `NEEDED` (like PHP or MariaDB), it will offer to
+   install them for you — **type `y` and press Enter** and enter your
+   password if asked. (On Windows it gives you download links instead.)
+4. The installer asks **one important question**: how much privacy?
+
+   | Option | Choose this if… |
+   |---|---|
+   | **1 — Retrieval-only** | Your documents are sensitive (financials, personal data). The assistant only quotes your documents back. Totally offline. *(Safest — recommended.)* |
+   | **2 — Local AI** | You want full written answers, still 100% offline. Downloads a ~1–5 GB AI model. |
+   | **3 — Cloud AI** | Documents are mostly public and you want the smartest answers. Needs a free API key (Part 6). |
+5. Wait for "Your blueprint" to print. Done!
+
+---
+
+## Part 3 — Start everything (1 minute)
+
+Double-click **`start-hub`** (`start-hub.bat` on Windows, `start-hub.sh` on
+Linux). One script starts everything in order:
+
+```
+MariaDB (database) → Member portal → Forum → AI engine → AI assistant
+```
+
+You should see:
+```
+[hub] up.
+  AI assistant : http://localhost:8090
+  Member portal: http://localhost:8080
+  Forum / chat : http://localhost:8081
+```
+
+> To stop everything later: double-click `stop-hub` (it leaves the database
+> running, which is normal and safe).
+
+---
+
+## Part 4 — Create secure admin passwords (2 minutes)
+
+In the terminal (or Command Prompt opened in the hub folder), run:
+```
+python3 secure_admin.py        (Windows: python secure_admin.py)
+```
+It prints four strong passwords and saves them to `ADMIN_CREDENTIALS.txt`.
+**Write these down somewhere safe** (a paper note in a drawer is fine),
+then delete the file after you've memorized or stored them.
+
+---
+
+## Part 5 — Set up the member portal and forum (15 minutes)
+
+First fetch the two web apps (once):
+```
+python3 setup_apps.py          (Windows: python setup_apps.py)
+```
+Then run `start-hub` again, and in your browser:
+
+### The member portal (Admidio)
+1. Open **http://localhost:8080** — a setup wizard appears.
+2. Fill in the database page exactly like this:
+   - Database host: `localhost` · Port: `3306`
+   - Database name: `admidio`
+   - User: `root`, Password: *(the one from setup_apps.py output, or your
+     MariaDB root password)*
+3. Create the administrator account using the **ADMIDIO_ADMIN** password
+   from Part 4. *Change it after first login.*
+
+### The forum (Flarum)
+1. Open **http://localhost:8081** — a setup wizard appears.
+2. Same database details, but database name: `flarum`.
+3. Create the admin account with the **FLARUM_ADMIN** password from Part 4.
+
+*(No Flarum wizard? Composer was missing — see Troubleshooting below.)*
+
+---
+
+## Part 6 — Only if you chose Cloud AI
+
+1. Go to **https://openrouter.ai/keys**, create a free account, and click
+   **Create Key**. Copy the key.
+2. Set it before starting the hub:
+   - **Windows:** `set OPENROUTER_API_KEY=your-key-here` in the Command
+     Prompt before running `start-hub.bat`
+   - **Linux:** `export OPENROUTER_API_KEY=your-key-here` before `./start-hub.sh`
+
+> Choosing option 1 or 2 (recommended for most organizations) skips this
+> part entirely.
+
+---
+
+## Part 7 — Your first AI question 🎉
+
+1. Put a document into the **`documents`** folder inside the hub folder —
+   your bylaws, meeting minutes, a PDF of anything. (.txt, .md, .csv, .pdf)
+2. Open **http://localhost:8090** in your browser.
+3. Type: **"What do our documents say about dues?"** and press Enter.
+
+The answer cites the file it came from. Add or change documents any time —
+the hub notices and re-indexes automatically.
+
+---
+
+## Part 8 — Check that everything is healthy
+
+Open **http://localhost:8090/status**. It shows:
+
+- Which of the five components are **UP** (green) or **DOWN** (red)
+- How many documents are indexed
+- The recent questions asked and how long answers took
+
+If something is DOWN, run the doctor — it repairs most problems itself:
+```
+python3 doctor.py              (Windows: python doctor.py)
+```
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `install.bat` closes instantly | Python wasn't added to PATH — reinstall it and tick **Add python.exe to PATH**. |
+| "dependency check failed" when starting | Read the `[FAIL]` lines; each has a `fix:` command. Or just run `python3 doctor.py`. |
+| Portal says "database connection failed" | MariaDB isn't running. Linux: `sudo systemctl start mariadb`. Windows: Start → Services → start **MariaDB**. |
+| Flarum wizard never appears | Composer is missing. Install from https://getcomposer.org/download/, then run `python3 setup_apps.py` again. |
+| AI says "Local AI engine is not reachable" | You're in local mode but the model isn't downloaded. Run `python3 install.py` again (it finishes the downloads). |
+| Cloud mode says API key missing | Repeat Part 6 — the key is set per terminal window. |
+| Everything else | `python3 doctor.py --yes` repairs venv, packages, downloads, and restarts services automatically. |
+
+---
+
+## Security for non-technical folks (read this bit!)
+
+- ✅ Everything only works **inside your office network**. Never "open
+  ports" on your router — remote members should use a VPN (Tailscale is
+  free: https://tailscale.com).
+- ✅ Turn on **disk encryption** (Windows: Settings → Privacy & Security →
+  BitLocker. Ubuntu: tick "encrypt home folder" or use LUKS).
+- ✅ Turn on **automatic updates** for the operating system.
+- ✅ In Flarum: require admin approval for new members. In Admidio: set
+  member lists to "registered users only".
+- ✅ Back up weekly: copy the whole hub folder's `data/` and `documents/`
+  subfolders to a USB stick.
+- ⚠️ Only the **Cloud AI** option sends anything to the internet — keep
+  sensitive minutes in option 1 or 2.
+
+---
+
+## Final checklist — before you call it done
+
+Whoever set the hub up should leave behind:
+
+- [ ] The hub folder, with `install.bat`/`install.sh` still in it
+- [ ] A printed copy of this guide
+- [ ] The privacy mode they chose, written down
+- [ ] Admin passwords changed from the generated ones, in a sealed envelope
+- [ ] `ADMIN_CREDENTIALS.txt` **deleted**
+- [ ] One test question answered successfully on their own documents
+- [ ] http://localhost:8090/status showing all green
+- [ ] A scheduled task so the hub starts when the computer boots
+      (Windows: put a shortcut to `start-hub.bat` in the Startup folder —
+      Win+R → `shell:startup`. Linux: a systemd user service for
+      `start-hub.sh`.)
+
+---
+
+## Licensing
+
+Everything in this bundle is free and open source (this hub's glue code:
+MIT; Qwen AI: Apache 2.0; llama.cpp and Flarum: MIT; Admidio and MariaDB:
+GPL v2; PHP/Python: liberal licenses). Share it, modify it, use it freely —
+if you redistribute, keep the license/notice files and point to the upstream
+projects for the GPL parts. Do **not** swap in the Qwen 2.5-3B or Meta Llama
+models: their licenses are more restrictive.

@@ -1,0 +1,21 @@
+# never commit local state, downloads, or credentials
+.venv/
+__pycache__/
+*.pyc
+
+# AI engine + models are downloaded by install.py (large binaries)
+ai/
+
+# web apps are fetched by setup_apps.py (upstream sources, GPL/other licenses)
+apps/
+
+# local runtime state
+data/
+documents/*
+!documents/sample_bylaws.txt
+config.json
+
+# credentials - NEVER commit
+ADMIN_CREDENTIALS.txt
+*.key
+*.pem
