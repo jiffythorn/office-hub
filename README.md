@@ -141,6 +141,68 @@ python3 install.py --reconfigure
 Cloud API keys are **never stored in config.json** — they're read from an
 environment variable (`OPENROUTER_API_KEY` or `GROQ_API_KEY`) at runtime.
 
+## Backups: built in from day one
+
+The installer takes a **first backup** before it prints "Done", and every
+`start-hub.sh` boot takes an **incremental snapshot** (skipped if one is less
+than 6 hours old). A snapshot protects everything irreplaceable:
+
+- `documents/` — the club's actual knowledge
+- `config.json` + `data/` — settings, admin password hash, **audit trail**, bot
+  config and memory, pairing approvals, document index
+- **Admidio + Flarum databases** via `mysqldump` (members and forum!)
+
+It deliberately skips re-downloadable stuff (AI model, apps, venvs), so a
+snapshot is only a few MB. The newest **20 snapshots / 30 days** are kept in
+`data/backups/` as plain files — copy them to a USB stick, or point the admin
+console at a folder your OneDrive/Dropbox/Google Drive already syncs (or an
+[rclone](https://rclone.org) remote) and they upload automatically.
+
+```bash
+python3 hub/backup.py            # take a snapshot now
+python3 hub/backup.py --list     # see what exists
+python3 hub/backup.py --verify   # re-hash every file, prove integrity
+python3 hub/backup.py --restore snapshot-20260101-120000-boot   # bring it all back
+python3 hub/backup.py --restore <name> --restore-databases      # + member DBs
+```
+
+The **Backups card** in the admin console shows the last snapshot and has
+"Back up now" / "Check backups" buttons plus the cloud-folder setting.
+
+## Officer AI: a maintenance assistant with real powers (heavily fenced)
+
+The member chat bot is deliberately restricted. Officers need the opposite: an
+AI that can actually *fix* things. The Officer AI can run the readiness check,
+auto-repair the installation, take and verify backups, rebuild the index,
+restart AI services, and install helper CLIs (`opencode`, `freebuff`) — from
+the **office-ai** CLI or a chat agent you point at it.
+
+It is fenced four ways:
+
+1. **Switched off until you enable it** — in the admin console's "Officer AI
+   (advanced)" card. Off means off.
+2. **Local machine only** — the gateway binds to `127.0.0.1`; nothing on the
+   LAN or internet can reach it. Remote use over a VPN requires flipping an
+   explicit switch *and* holding the access key (regenerate it any time).
+3. **Allowlist, not freedom** — there is no shell. The AI can "press buttons"
+   from a short, readable list (`check`, `doctor`, `backup`, `reindex`, …);
+   anything else is refused and logged. `rm`, `sudo`, and arbitrary commands
+   simply do not exist for it.
+4. **Everything is audited** — every run, refusal, and login attempt lands in
+   `data/audit.jsonl`, shown on the status page and included in every backup.
+
+```bash
+./office-ai.sh                        # interactive menu (Windows: office-ai.bat)
+./office-ai.sh check                  # run one action directly
+./office-ai.sh "is anything broken?"  # ask in plain English - the local AI
+                                      # picks the action; answers stay local
+./office-ai.sh history                # what has it been doing?
+```
+
+The same allowlist is exposed as an OpenAI-style tool bridge at
+`http://127.0.0.1:8090/officer` so a Power Mode agent profile can act as the
+Officer AI's conversational front-end — with the same key, allowlist and audit.
+
 ## Security posture
 
 - Everything binds to the LAN only; **never port-forward** 8080–8090.
@@ -196,11 +258,15 @@ hub/engine.py         indexer (SQLite FTS5) + retrieval + AI backends
 hub/server.py         FastAPI glue + chat UI
 hub/admin.py          /admin web console (settings without the installer)
 hub/llm_proxy.py      tiered AI fallback chain (:8085)
+hub/backup.py         self-contained snapshots + mysqldump + verify/restore
+hub/audit.py          append-only audit trail (data/audit.jsonl)
+hub/admin_ai.py       Officer AI gateway: allowlist + key + local-only fence
+office-ai.sh / .bat   officer CLI: menu, one-shot actions, plain-English asks
 config.json           written by installer; the whole system reads it
 documents/            <-- your club's documents live here
 apps/                 admidio/ flarum/ (after setup_apps.py)
 ai/                   llama.cpp binary + GGUF models (after install)
-data/                 pidfiles, logs, document index (backup this!)
+data/                 pidfiles, logs, document index, audit trail, backups
 ```
 
 ## Credits & upstream resources

@@ -722,7 +722,15 @@ def main():
     hr("STEP 8 - Readiness check (same checks the start scripts run)")
     subprocess.run([sys.executable, str(ROOT / "check_deps.py"), "--quiet"])
 
-    hr("STEP 9 - Done. Your blueprint:")
+    hr("STEP 9 - First backup (protects everything from day one)")
+    try:
+        sys.path.insert(0, str(ROOT))
+        from hub import backup as hub_backup
+        hub_backup.snapshot(label="first-install")
+    except Exception as e:
+        print(f"  WARNING: first backup failed ({e}) - run: python3 hub/backup.py")
+
+    hr("STEP 10 - Done. Your blueprint:")
     print(f"""
   Privacy mode      : {privacy_mode}
   Power Mode        : {'ON - agent + chat apps enabled' if cfg.get('power_mode') else 'off'}

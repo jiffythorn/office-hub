@@ -187,6 +187,8 @@ Open **http://localhost:8090/status**. It shows:
 - Which of the components are **UP** (green) or **DOWN** (red)
 - How many documents are indexed
 - The recent questions asked and how long answers took
+- **Backups** — when the last snapshot ran, what it protects
+- The **activity trail** — who changed what, and when
 
 **Changing settings later?** Open **http://localhost:8090/admin** — the admin
 console. First visit asks you to create an admin password; after that you can
@@ -197,6 +199,44 @@ If something is DOWN, run the doctor — it repairs most problems itself:
 ```
 python3 doctor.py              (Windows: python doctor.py)
 ```
+
+### Backups: your safety net (already working!)
+
+Good news: **backups are automatic.** The installer took a first snapshot
+before it said "Done", and every boot takes another (if the last one is over
+6 hours old). One snapshot = your documents, settings, bot memory, and the
+member database — everything that can't be re-downloaded. It's only a few MB.
+
+Peek at **http://localhost:8090/admin → Backups**: the last snapshot is shown
+there, with **Back up now** and **Check backups** buttons.
+
+**One thing worth doing today:** tell the hub to also copy backups to a cloud
+folder. If your club already uses OneDrive, Dropbox, or Google Drive on the
+office PC, paste that folder's path into the Backups card and save. From then
+on, every backup automatically lands in the cloud too. (Prefer a USB drive?
+Same box: just use a folder on it.)
+
+**If disaster strikes** (drive dies, someone deletes the wrong thing):
+```
+python3 hub/backup.py --list                              (see snapshots)
+python3 hub/backup.py --restore snapshot-XXXXXXXX-XXXXXX  (bring them back)
+```
+Your club is back. That's the whole point.
+
+### The Officer AI: your maintenance helper (optional, switched off by default)
+
+Inside the admin console there's an **Officer AI (advanced)** card. Switch it
+on and you get an AI helper that can check the installation, repair problems,
+take backups, and rebuild the search index — on your say-so.
+
+- It's **protected**: it only accepts requests holding the access key shown on
+  that card, and it works **from the office PC only** unless you explicitly
+  allow VPN users.
+- It **can't run arbitrary commands** — only a short list of maintenance
+  actions, and every single thing it does is written to the activity trail.
+- Easiest way to use it, in a terminal in the hub folder:
+  `./office-ai.sh` (Windows: `office-ai.bat`) — pick from the menu, or ask in
+  plain English: `./office-ai.sh "is anything broken?"`
 
 ---
 

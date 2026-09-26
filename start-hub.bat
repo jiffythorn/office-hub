@@ -28,6 +28,9 @@ if errorlevel 1 (
   exit /b 1
 )
 
+REM --- 0b. safety net: incremental backup at every boot (skips if <6h old) -------
+start "" /b "%PY%" hub\backup.py --auto > data\backup-boot.log 2>&1
+
 REM --- 1. MariaDB (best effort) ----------------------------------------------------
 if %HUB_ONLY%==0 (
   %PY% portcheck.py 3306 >nul 2>&1
@@ -118,6 +121,19 @@ if exist "data\chain.pid" (
 start "" /b "%PY%" hub\llm_proxy.py > data\chain.log 2>&1
 echo [chain] LLM fallback chain starting on :8085
 :done
+
+REM --- 6. Officer AI gateway (only when switched on in the admin console) -------
+set "OFFICER="
+if exist "data\officer_ai.json" for /f "usebackq delims=" %%i in (`%PY% -c "import json;print(json.load(open('data/officer_ai.json')).get('enabled', False))" 2^>nul`) do set "OFFICER=%%i"
+if /i "%OFFICER%"=="True" (
+  %PY% portcheck.py 8765 >nul 2>&1
+  if errorlevel 1 (
+    start "" /b "%PY%" hub\admin_ai.py > data\officer-ai.log 2>&1
+    echo [officer-ai] Officer AI gateway on http://localhost:8765 ^(key-protected, logged^)
+  ) else (
+    echo [officer-ai] already running ^(:8765^)
+  )
+)
 echo [hub] up.
 if %HUB_ONLY%==1 exit /b 0
 echo   AI assistant : http://localhost:8090

@@ -24,11 +24,22 @@ from pydantic import BaseModel
 
 from . import engine
 from . import agent_sync
+from . import backup as hub_backup
+from . import audit
 from .admin import router as admin_router
 
 ROOT = Path(__file__).resolve().parent.parent
 app = FastAPI(title="Office Hub AI", docs_url=None, redoc_url=None)
 app.include_router(admin_router)
+
+# The Officer AI is a SEPARATE, more privileged service. Mounting its ASGI app
+# keeps the fence explicit (own allowlist, own auth, own audit records) while
+# sharing the hub's port and process.
+try:
+    from .admin_ai import build_app as _officer_app
+    app.mount("/officer", _officer_app())
+except Exception:                       # never let the Officer AI break the hub
+    pass
 
 _lock = threading.Lock()  # SQLite writes are serialized; requests stay snappy
 
@@ -180,6 +191,15 @@ def status_page():
         f"<td>{q['took_s']}s</td><td>{'ok' if q['ok'] else 'error'}</td></tr>"
         for q in qs) or "<tr><td colspan=5><i>No questions asked yet.</i></td></tr>"
 
+    bk = hub_backup.last_snapshot() or {}
+    n_snaps = len(list((ROOT / "data" / "backups").glob("snapshot-"))) \
+        if (ROOT / "data" / "backups").exists() else 0
+    arows = "".join(
+        f"<tr><td>{escape(e['time'])}</td><td>{escape(e['actor'])}</td>"
+        f"<td>{escape(e['action'])}</td><td>{escape(e['outcome'])}</td></tr>"
+        for e in audit.recent(15)) or \
+        '<tr><td colspan=4><i>Nothing logged yet.</i></td></tr>'
+
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="refresh" content="30"><title>Hub Status</title>
 <style>body{{font-family:system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem}}
@@ -195,6 +215,17 @@ Files live in <code>documents/</code> &middot; <form style="display:inline"
 method="post" action="/reindex"><button>Reindex now</button></form> (returns JSON).</p>
 <h2>Recent questions</h2>
 <table><tr><th>When</th><th>Question</th><th>Backend</th><th>Time</th><th>Result</th></tr>{qrows}</table>
+<h2>Backups</h2>
+<p>Last snapshot: <b>{escape(str(bk.get('when', 'never')))}</b> ({escape(str(bk.get('name', '-')))})
+&middot; {escape(str(bk.get('files', '-')))} files &middot; {escape(str(bk.get('mb', '?')))} MB
+&middot; member databases: {escape(str(bk.get('databases', 'none')))}</p>
+<p>{n_snaps} snapshot(s) kept in <code>data/backups/</code> (newest 20, 30 days).
+Take one now from <a href="/admin">admin &rarr; Backups</a> or run
+<code>python3 hub/backup.py</code>. Restore: <code>python3 hub/backup.py --restore &lt;snapshot&gt;</code>.</p>
+<h2>Activity trail (who changed what)</h2>
+<table><tr><th>When</th><th>Who</th><th>What</th><th>Result</th></tr>{arows}</table>
+<p class="small">Full trail in <code>data/audit.jsonl</code> - admin console,
+Officer AI and backup actions are all recorded (and backed up themselves).</p>
 </body></html>"""
 def reindex_endpoint():
     cfg = _cfg()

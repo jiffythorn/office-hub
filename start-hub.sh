@@ -14,6 +14,9 @@ PY=".venv/bin/python"
 [ -x "$PY" ] || PY="python3"
 mkdir -p data
 
+# --- 0b. safety net: incremental backup at every boot (skips if <6h old) ------
+nohup "$PY" hub/backup.py --auto > data/backup-boot.log 2>&1 &
+
 HUB_ONLY=0
 [ "${1:-}" = "--hub-only" ] && HUB_ONLY=1
 
@@ -112,6 +115,17 @@ else
   nohup "$PY" hub/llm_proxy.py > data/chain.log 2>&1 &
   echo $! > data/chain.pid
   echo "[chain] LLM fallback chain starting on :8085 (local -> free -> keyed tiers)"
+fi
+
+# --- 6. Officer AI gateway (only when switched on in the admin console) -------
+if [ "$($PY -c "import json;print(json.load(open('data/officer_ai.json')).get('enabled', False))" 2>/dev/null)" = "True" ]; then
+  if alive data/officer-ai.pid; then
+    echo "[officer-ai] already running (pid $(cat data/officer-ai.pid))"
+  else
+    nohup "$PY" hub/admin_ai.py > data/officer-ai.log 2>&1 &
+    echo $! > data/officer-ai.pid
+    echo "[officer-ai] Officer AI gateway on http://localhost:8765 (key-protected, logged)"
+  fi
 fi
 
 echo "[hub] up."

@@ -30,6 +30,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from . import engine
 from . import agent_sync
+from . import audit
+from . import backup as hub_backup
+from . import admin_ai as officer
 
 ROOT = Path(__file__).resolve().parent.parent
 HASH_FILE = ROOT / "data" / "admin_hash.txt"
@@ -96,8 +99,9 @@ label{display:block;margin:.7rem 0 .2rem;font-weight:600;font-size:.92rem}
 input,select{padding:.45rem;border:1px solid #ccc;border-radius:6px;width:100%;max-width:420px;font-size:.95rem}
 .card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:1rem 1.2rem;margin:.6rem 0}
 button{margin-top:.8rem;padding:.5rem 1.1rem;border:0;border-radius:6px;background:#1a5fb4;color:#fff;cursor:pointer}
-button.danger{background:#c01c28}.ok{color:#1a7f37;font-weight:600}.err{color:#c01c28;font-weight:600}
-.small{color:#777;font-size:.82rem}a{color:#1a5fb4}code{background:#eee;padding:.05rem .3rem;border-radius:4px}"""
+button.plain{background:#666}button.danger{background:#c01c28}.ok{color:#1a7f37;font-weight:600}.err{color:#c01c28;font-weight:600}
+.small{color:#777;font-size:.82rem}a{color:#1a5fb4}code{background:#eee;padding:.05rem .3rem;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:.85rem;margin:.4rem 0}td,th{border:1px solid #e3e3e3;padding:.35rem .5rem;text-align:left}"""
 
 
 def _page(title, body, msg="", err=""):
@@ -163,6 +167,17 @@ def admin_home(request: Request):
     else:
         bot_name, tz = "Club Assistant", ""
 
+    # Backups + Officer AI + audit trail data for the cards below
+    last_bk = hub_backup.last_snapshot() or {}
+    bk_cfg = cfg.get("backup", {})
+    oconf = officer.load_conf()
+    audit_rows = "".join(
+        f"<tr><td>{escape(e['time'])}</td><td>{escape(e['actor'])}</td>"
+        f"<td>{escape(e['action'])}</td>"
+        f"<td>{escape(e['outcome'])}</td></tr>"
+        for e in audit.recent(12)) or \
+        '<tr><td colspan="4"><i>Nothing logged yet.</i></td></tr>'
+
     body = f"""
 <h2>AI &amp; privacy</h2>
 <div class="card">
@@ -219,6 +234,53 @@ def admin_home(request: Request):
   Member chat bots re-read their tokens at restart; pairing approvals are kept.</div>
 </div>
 
+<h2>Backups</h2>
+<div class="card">
+  <p>Last backup: <b>{escape(str(last_bk.get('when', 'never')))}</b>
+  &middot; {escape(str(last_bk.get('files', '-')))} files
+  &middot; {escape(str(last_bk.get('mb', '?')))} MB
+  &middot; member databases: {escape(str(last_bk.get('databases', 'none')))}</p>
+  <div class="small">Protects your documents, settings, bot memory and the member
+  database from a dead drive. Keeps the newest 20 snapshots (30 days) and takes
+  one automatically at every boot.</div>
+  <form method="post" action="/admin/backup" style="display:inline">
+    <input type="hidden" name="action" value="run"><button>Back up now</button></form>
+  <form method="post" action="/admin/backup" style="display:inline">
+    <input type="hidden" name="action" value="verify"><button class="plain">Check backups</button></form>
+  <form method="post" action="/admin/backup">
+    <label>Also copy backups to a cloud-synced folder (OneDrive / Dropbox / Google Drive)</label>
+    <input name="cloud_dir" value="{escape(bk_cfg.get('cloud_dir', ''))}" placeholder="e.g. C:\\Users\\you\\OneDrive\\Backups">
+    <label>Advanced: rclone remote name (optional)</label>
+    <input name="rclone_remote" value="{escape(bk_cfg.get('rclone_remote', ''))}" placeholder="e.g. gdrive">
+    <input type="hidden" name="action" value="save"><button class="plain">Save backup destinations</button>
+  </form>
+</div>
+
+<h2>Officer AI (advanced)</h2>
+<div class="card">
+  <p>An AI helper with real maintenance powers: runs the doctor, checks backups,
+  rebuilds the index, installs helper CLIs. It is <b>switched off</b> until you
+  turn it on, it only accepts requests with the access key below, and everything
+  it does is written to the activity trail at the bottom of this page.</p>
+  <form method="post" action="/admin/officer">
+    <label>Officer AI</label>
+    <select name="enabled">{_sel([("on", "ON - officers can use it (passworded, logged)"),
+                                   ("off", "OFF - completely disabled (recommended when not needed)")],
+                                  "on" if oconf["enabled"] else "off")}</select>
+    <label>Allow use from other computers (over a VPN)</label>
+    <select name="remote_allowed">{_sel([("off", "NO - this computer only (safest)"),
+                                          ("on", "yes - VPN users with the key may use it")],
+                                         "on" if oconf["remote_allowed"] else "off")}</select>
+    <input type="hidden" name="action" value="save"><button>Save Officer AI settings</button>
+  </form>
+  <p class="small">Officer access key: <code>{escape(oconf['token']) or '<i>(created when first enabled)</i>'}</code>
+  &mdash; give this only to trusted officers.</p>
+  <form method="post" action="/admin/officer" style="display:inline">
+    <input type="hidden" name="action" value="new_token"><button class="plain">Make a new key</button></form>
+  <form method="post" action="/admin/officer" style="display:inline">
+    <input type="hidden" name="action" value="install_clis"><button class="plain">Install helper CLIs (opencode, freebuff)</button></form>
+</div>
+
 <h2>Security</h2>
 <div class="card">
 <form method="post" action="/admin/password">
@@ -227,6 +289,13 @@ def admin_home(request: Request):
   <button>Change password</button></form>
 <form method="post" action="/admin/logout" style="display:inline">
   <button class="danger">Sign out</button></form>
+</div>
+
+<h2>Activity trail</h2>
+<div class="card">
+<table><tr><th>When</th><th>Who</th><th>What</th><th>Result</th></tr>{audit_rows}</table>
+<div class="small">Every admin and Officer AI action is recorded in
+<code>data/audit.jsonl</code> and included in every backup.</div>
 </div>"""
     return HTMLResponse(_page("Console", body))
 
@@ -238,20 +307,24 @@ def first_run(pw: str = Form(""), pw2: str = Form("")):
     if pw != pw2 or len(pw) < 8:
         return RedirectResponse("/admin?e=" + escape("Passwords must match and be 8+ characters"), status_code=303)
     _save_hash(pw)
+    audit.record("admin.first_run", actor="admin")
     return RedirectResponse("/admin", status_code=303)
 
 
 @router.post("/login")
 def login(pw: str = Form("")):
     if _check_password(pw):
+        audit.record("admin.login", actor="admin")
         resp = RedirectResponse("/admin", status_code=303)
         resp.set_cookie(COOKIE, _new_session(), httponly=True, samesite="lax")
         return resp
+    audit.record("admin.login", actor="unknown", outcome="failed")
     return RedirectResponse("/admin?e=Wrong%20password", status_code=303)
 
 
 @router.post("/logout")
 def logout():
+    audit.record("admin.logout", actor="admin")
     resp = RedirectResponse("/admin", status_code=303)
     resp.delete_cookie(COOKIE)
     return resp
@@ -262,6 +335,7 @@ async def change_password(request: Request, pw: str = Form("")):
     if not _is_authed(request) or len(pw) < 8:
         return RedirectResponse("/admin", status_code=303)
     _save_hash(pw)
+    audit.record("admin.password_changed", actor="admin")
     return RedirectResponse("/admin?m=Password%20changed", status_code=303)
 
 
@@ -355,6 +429,11 @@ async def save(request: Request,
             acfg_path.write_text(json.dumps(ac, indent=2))
             agent_sync.sync_docs_to_agent(cfg)
 
+    audit.record("admin.save", actor="admin", privacy_mode=privacy_mode,
+                 power_mode=power, tg_token_set=bool(tg_token.strip()),
+                 dc_token_set=bool(dc_token.strip()),
+                 chain_disabled=chain_disabled or "none",
+                 ctx=la["ctx"], threads=la["threads"])
     (ROOT / "config.json").write_text(json.dumps(cfg, indent=2))
     _restart_ai_services()
     return RedirectResponse("/admin?m=Saved%20-%20services%20restarting", status_code=303)
@@ -367,6 +446,7 @@ async def reindex(request: Request):
     cfg = engine.load_config()
     docs, chunks = engine.reindex(cfg, verbose=False)
     agent_sync.sync_docs_to_agent(cfg)
+    audit.record("admin.reindex", actor="admin", documents=docs, chunks=chunks)
     return RedirectResponse(
         f"/admin?m=Indexed%20{docs}%20documents%2C%20{chunks}%20chunks",
         status_code=303)
@@ -376,5 +456,83 @@ async def reindex(request: Request):
 async def restart(request: Request):
     if not _is_authed(request):
         return RedirectResponse("/admin", status_code=303)
+    audit.record("admin.restart", actor="admin")
     _restart_ai_services()
     return RedirectResponse("/admin?m=AI%20services%20restarting", status_code=303)
+
+
+# ------------------------------------------------------------- backups
+
+@router.post("/backup")
+async def backup_action(request: Request, action: str = Form(""),
+                        cloud_dir: str = Form(""),
+                        rclone_remote: str = Form("")):
+    if not _is_authed(request):
+        return RedirectResponse("/admin", status_code=303)
+    cfg = engine.load_config()
+    if action == "run":
+        import threading
+        threading.Thread(target=hub_backup.snapshot,
+                         args=("manual",), daemon=True).start()
+        audit.record("admin.backup_now", actor="admin")
+        return RedirectResponse(
+            "/admin?m=Backup%20started%20-%20refresh%20in%20a%20moment",
+            status_code=303)
+    if action == "verify":
+        checked, bad = hub_backup.verify()
+        audit.record("admin.backup_verify", actor="admin",
+                     files=checked, bad=len(bad))
+        msg = f"Backup check: {checked} files verified OK" if not bad else \
+            f"Backup check: {len(bad)} of {checked} files CORRUPT - see data/backups"
+        return RedirectResponse("/admin?m=" + _q(msg), status_code=303)
+    if action == "save":
+        b = cfg.setdefault("backup", {})
+        b["cloud_dir"] = cloud_dir.strip()
+        b["rclone_remote"] = rclone_remote.strip()
+        audit.record("admin.backup_settings", actor="admin",
+                     cloud_dir=b["cloud_dir"] or "none",
+                     rclone=b["rclone_remote"] or "none")
+        (ROOT / "config.json").write_text(json.dumps(cfg, indent=2))
+        return RedirectResponse("/admin?m=Backup%20settings%20saved", status_code=303)
+    return RedirectResponse("/admin", status_code=303)
+
+
+# ------------------------------------------------- officer AI (advanced)
+
+@router.post("/officer")
+async def officer_action(request: Request, action: str = Form(""),
+                         enabled: str = Form("off"),
+                         remote_allowed: str = Form("off")):
+    if not _is_authed(request):
+        return RedirectResponse("/admin", status_code=303)
+    conf = officer.load_conf()
+    if action == "save":
+        conf["enabled"] = enabled == "on"
+        conf["remote_allowed"] = remote_allowed == "on"
+        if not conf["token"]:
+            conf["token"] = secrets.token_urlsafe(24)
+        officer.save_conf(conf)
+        audit.record("admin.officer_ai", actor="admin",
+                     enabled=conf["enabled"],
+                     remote=conf["remote_allowed"])
+        return RedirectResponse("/admin?m=Officer%20AI%20settings%20saved",
+                                status_code=303)
+    if action == "new_token":
+        conf["token"] = secrets.token_urlsafe(24)
+        officer.save_conf(conf)
+        audit.record("admin.officer_token", actor="admin", outcome="rotated")
+        return RedirectResponse("/admin?m=New%20Officer%20AI%20key%20generated",
+                                status_code=303)
+    if action == "install_clis":
+        import threading
+        threading.Thread(target=officer.install_clis, daemon=True).start()
+        audit.record("admin.officer_clis", actor="admin")
+        return RedirectResponse(
+            "/admin?m=CLI%20install%20started%20-%20check%20data%2Fhub.log",
+            status_code=303)
+    return RedirectResponse("/admin", status_code=303)
+
+
+def _q(text: str) -> str:
+    from urllib.parse import quote
+    return quote(text)
