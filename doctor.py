@@ -29,6 +29,7 @@ import json
 import platform
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import check_deps
@@ -173,6 +174,98 @@ def repair_flarum():
 
 
 # ----------------------------------------------------------------------------
+# backup safety: is a recent snapshot available, is the nightly schedule on?
+# ----------------------------------------------------------------------------
+
+FRESH_HOURS = 48          # a snapshot older than this counts as stale
+
+
+def backup_health():
+    """Returns (issues, repairs).
+
+    issues:  [(name, detail, fix_text), ...] - empty when everything is fine
+    repairs: {name: callable} - what the doctor can do about each issue
+    """
+    try:
+        from hub import backup as hub_backup
+    except Exception as e:
+        return [("backup module", f"cannot load hub/backup.py ({e})",
+                 "check the installation")], {}
+    issues, repairs = [], {}
+
+    last = hub_backup.last_snapshot()
+    if not last:
+        issues.append(("backups", "no snapshot has ever been taken",
+                       "take the first snapshot now"))
+        repairs["backups"] = lambda: hub_backup.snapshot(label="doctor")
+    else:
+        age_h = None
+        try:
+            t = time.mktime(time.strptime(last["when"], "%Y-%m-%d %H:%M:%S"))
+            age_h = (time.time() - t) / 3600
+        except Exception:
+            pass
+        if age_h is None or age_h > FRESH_HOURS:
+            age_txt = ("unknown age" if age_h is None
+                       else f"{age_h / 24:.1f} days ago")
+            issues.append(("backups", f"last snapshot is stale ({age_txt}: "
+                           f"{last['when']})",
+                           "take a fresh snapshot"))
+            repairs["backups"] = lambda: hub_backup.snapshot(label="doctor")
+
+    sched = hub_backup.schedule_status()
+    if not sched.get("installed"):
+        issues.append(("nightly backup schedule",
+                       sched.get("detail", "off"),
+                       "schedule the nightly 02:00 snapshot"))
+        repairs["nightly backup schedule"] = hub_backup.schedule_install
+    return issues, repairs
+
+
+def print_backup_health():
+    """Used in CHECK and VERIFY phases. Returns (issues, repairs)."""
+    issues, repairs = backup_health()
+    if not issues:
+        from hub import backup as hub_backup
+        last = hub_backup.last_snapshot() or {}
+        sched = hub_backup.schedule_status()
+        print(f"  [ok]  backups - last snapshot {last.get('when', '?')} "
+              f"({last.get('files', '?')} files), nightly schedule "
+              f"{'ON' if sched.get('installed') else 'OFF'}")
+        return issues, repairs
+    for name, detail, fix in issues:
+        print(f"  [warn] {name} - {detail}")
+        print(f"          fix: {fix}")
+    return issues, repairs
+
+
+def repair_backups(issues, repairs, args):
+    """Offer the fixes. Everything is local and safe, so --yes accepts."""
+    for name, _detail, _fix in issues:
+        action = repairs.get(name)
+        if not action:
+            continue
+        prompt = (f"take a backup snapshot right now? "
+                  if name == "backups"
+                  else "turn on the nightly backup (daily at 02:00)? ")
+        if agree(prompt, args):
+            note(f"fixing: {name} ...")
+            try:
+                res = action()
+                ok = True if res is None else bool(res.get("installed", True))
+                if ok:
+                    done.append(name)
+                else:
+                    note(f"could not fix {name}: {res.get('detail', 'unknown')}")
+                    skipped.append(name)
+            except Exception as e:
+                note(f"repair failed: {e}")
+                skipped.append(name)
+        else:
+            skipped.append(name)
+
+
+# ----------------------------------------------------------------------------
 # dispatch + restart
 # ----------------------------------------------------------------------------
 
@@ -264,11 +357,17 @@ def main():
         if fix:
             print(f"          fix: {fix}")
 
+    if "hub" in sections:
+        print("\n-- BACKUP SAFETY ----------------------------------------------")
+        bk_issues, bk_repairs = print_backup_health()
+
     if args.check_only:
         sys.exit(1 if any(l == "FAIL" for l, *_ in check_deps.results) else 0)
 
     print("\n-- REPAIR -----------------------------------------------------")
     cfg = run_repairs(sections, cfg, args)
+    if "hub" in sections and bk_issues:
+        repair_backups(bk_issues, bk_repairs, args)
 
     print("\n-- VERIFY -----------------------------------------------------")
     check_deps.results.clear()
@@ -280,6 +379,12 @@ def main():
         if fix:
             print(f"          fix: {fix}")
         fails += level == "FAIL"
+    if "hub" in sections:
+        print("  -- backup safety:")
+        bk_after, _r = print_backup_health()
+        if bk_after and all(n in skipped for n, _d, _f in bk_after):
+            note("backup warnings remain (declined) - run the doctor again "
+                 "any time, or use /admin -> Backups.")
 
     print("\n-- SUMMARY ----------------------------------------------------")
     if done:
