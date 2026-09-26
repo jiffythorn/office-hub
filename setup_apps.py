@@ -77,6 +77,20 @@ def fetch_admidio():
             print("  WARNING: tarball extracted but no admidio directory found "
                   "- check apps/ manually")
         tarball.unlink()  # clean up whichever tarball we used
+        # Admidio's source archives ship WITHOUT vendor/ (only full releases
+        # would include it, and there are none) - without composer install
+        # every page dies with 'Failed to open stream: ... vendor/autoload.php'.
+        if not (dest / "vendor" / "autoload.php").exists():
+            composer = have("composer", "composer.phar")
+            if composer:
+                cmd = ["composer"] if composer == "composer" else ["php", composer]
+                print("  Installing Admidio PHP dependencies (composer) ...")
+                sh(cmd + ["install", "--no-interaction",
+                          "--no-progress"], cwd=dest)
+            else:
+                print("  WARNING: composer not found - run "
+                      "'composer install' inside apps/admidio or the portal "
+                      "will not start (vendor/autoload.php missing).")
     else:
         print("  ERROR: could not fetch Admidio - download manually from "
               "https://github.com/Admidio/admidio/releases and unzip to apps/admidio")
