@@ -5,6 +5,10 @@
 # and prints one green/red summary line per check. Read-only by design:
 # it never changes settings or data (it takes one labeled snapshot).
 #
+# Check 11 covers the portal database path (Admidio/Flarum MariaDB dumps and
+# a destroy-then-restore round-trip). It runs whenever the MariaDB test
+# profile is ready (set it up with: sudo bash portal-test.sh install+seed).
+#
 # Usage:
 #   bash regression.sh              # hub must already be running
 #   bash regression.sh --start      # start (or reuse) the hub first
@@ -41,7 +45,7 @@ if [ "${1:-}" = "--start" ]; then
 fi
 
 # ---------------------------------------------------------------- 1. ports
-echo "[1/10] services (ports)"
+echo "[1/11] services (ports)"
 port 8090 && ok "hub API :8090" || bad "hub API :8090"
 port 8085 && ok "LLM chain :8085" || bad "LLM chain :8085"
 if [ -f ai/llama.cpp/llama-server ]; then
@@ -57,14 +61,14 @@ else
 fi
 
 # ------------------------------------------------------------- 2. health
-echo "[2/10] health endpoints"
+echo "[2/11] health endpoints"
 curl -s -m 5 http://localhost:8090/health | grep -q '"ok":true' \
   && ok "hub /health ok:true" || bad "hub /health"
 curl -s -m 5 http://localhost:8085/health | grep -q '"ok":true' \
   && ok "chain /health ok:true" || bad "chain /health"
 
 # ------------------------------------------------------------- 3. live chat
-echo "[3/10] live chat (real model)"
+echo "[3/11] live chat (real model)"
 ANS=$(curl -s -m 90 -X POST http://localhost:8090/ask \
       -H 'Content-Type: application/json' \
       -d '{"question":"what are the annual dues?"}')
@@ -76,7 +80,7 @@ CR=$(curl -s -m 90 -X POST http://localhost:8085/v1/chat/completions \
 echo "$CR" | grep -q '"choices"' && ok "chain chat completions" || bad "chain chat completions"
 
 # ------------------------------------------------------------- 4. backups
-echo "[4/10] backups"
+echo "[4/11] backups"
 BK=$("$PY" -m hub.backup --label regression 2>&1)
 echo "$BK" | grep -q "snapshot snapshot-" && ok "snapshot taken" || bad "snapshot taken"
 "$PY" -m hub.backup --verify >/dev/null 2>&1 && ok "verify: all files hash-clean" || bad "backup verify"
@@ -84,13 +88,13 @@ echo "$BK" | grep -q "snapshot snapshot-" && ok "snapshot taken" || bad "snapsho
   && ok "nightly schedule ON" || bad "nightly schedule ON (expected OFF only on purpose)"
 
 # ------------------------------------------------------------- 5. doctor
-echo "[5/10] doctor"
+echo "[5/11] doctor"
 DOC=$("$PY" doctor.py --section hub --check-only 2>&1)
 echo "$DOC" | grep -q "BACKUP SAFETY" && ok "doctor has BACKUP SAFETY phase" || bad "doctor BACKUP SAFETY phase"
 echo "$DOC" | grep -qE "\[ok\]  backups" && ok "doctor: backups green" || bad "doctor: backups green"
 
 # ------------------------------------------------------------ 6. officer AI
-echo "[6/10] officer AI"
+echo "[6/11] officer AI"
 curl -s -m 5 http://localhost:8090/officer/health | grep -q '"service"' \
   && ok "officer gateway mounted" || bad "officer gateway mounted"
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 5 -X POST \
@@ -108,7 +112,7 @@ NONLIST=$(curl -s -m 5 -X POST http://localhost:8090/officer/run \
 echo "$NONLIST" | grep -q "not an allowed command" && ok "non-allowlist refused" || bad "non-allowlist not refused"
 
 # ------------------------------------------------------------ 7. admin console
-echo "[7/10] admin console"
+echo "[7/11] admin console"
 JAR=$(mktemp)
 LC=$(curl -s -o /dev/null -w '%{http_code}' -c "$JAR" -m 5 -d "pw=${HUB_ADMIN_PW:-}" \
      http://localhost:8090/admin/login)
@@ -123,7 +127,7 @@ RC=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -m 60 -X POST \
 rm -f "$JAR"
 
 # ------------------------------------------------------------ 8. telegram
-echo "[8/10] telegram poller"
+echo "[8/11] telegram poller"
 if grep -aq "bot @.* connected" data/agent.log 2>/dev/null; then
   ok "telegram bot connected (log)"
 else
@@ -136,17 +140,50 @@ else
 fi
 
 # ------------------------------------------------------------ 9. status page
-echo "[9/10] status page"
+echo "[9/11] status page"
 ST=$(curl -s -m 5 http://localhost:8090/status)
 echo "$ST" | grep -q "Activity trail" && ok "status: activity trail" || bad "status: activity trail"
 echo "$ST" | grep -q "Last snapshot" && ok "status: backup summary" || bad "status: backup summary"
 
 # ------------------------------------------------------------ 10. audit trail
-echo "[10/10] audit trail"
+echo "[10/11] audit trail"
 tail -5 data/audit.jsonl 2>/dev/null | grep -q "admin.reindex" \
   && ok "audit recorded the reindex" || bad "audit missing reindex entry"
 LINES=$(wc -l < data/audit.jsonl 2>/dev/null || echo 0)
 [ "${LINES:-0}" -gt 5 ] && ok "audit trail growing ($LINES events)" || bad "audit trail thin"
+
+# ------------------------------------------------------------ 11. portal DBs
+echo "[11/11] portal databases (MariaDB test profile)"
+if bash portal-test.sh status >/dev/null 2>&1; then
+  ok "test profile ready (MariaDB + seed data + override)"
+  # a) the hub's own dump path produces non-empty SQL for both databases
+  bash portal-test.sh dump >/dev/null 2>&1 \
+    && ok "backup dump_databases(): both DBs dumped" || bad "backup dump_databases()"
+  # b) a real snapshot records both dumps as ok
+  PK=$("$PY" -m hub.backup --label portal 2>&1)
+  PORTAL_SNAP=$(echo "$PK" | grep -oE "snapshot snapshot-[0-9-]+portal" | head -1 | sed 's/^snapshot //')
+  echo "$PK" | grep -q "database admidio: dumped" && ok "snapshot dumped admidio" || bad "snapshot dumped admidio"
+  echo "$PK" | grep -q "database flarum: dumped"  && ok "snapshot dumped flarum"  || bad "snapshot dumped flarum"
+  # c) the round-trip: destroy a live table, restore the DBs from the snapshot
+  #    we just took, prove the seed rows came back through mysql itself.
+  MYSQL_PWD=hub-backup-test mysql -h 127.0.0.1 -u hub_backup admidio \
+    -e "DELETE FROM adm_members WHERE mem_username='emily.carter';" 2>/dev/null
+  RC=$(MYSQL_PWD=hub-backup-test mysql -h 127.0.0.1 -u hub_backup -N -e \
+    "SELECT COUNT(*) FROM admidio.adm_members WHERE mem_username='emily.carter';" 2>/dev/null)
+  [ "$RC" = "0" ] && ok "destroyed a member row (pre-restore)" || bad "could not destroy row (pre-restore)"
+  if [ -n "$PORTAL_SNAP" ]; then
+    RESTORE_OUT=$("$PY" -m hub.backup --restore "$PORTAL_SNAP" --restore-databases 2>&1)
+    echo "$RESTORE_OUT" | grep -q "admidio:ok" \
+      && ok "restore --restore-databases: admidio ok" || bad "restore admidio"
+    RC=$(MYSQL_PWD=hub-backup-test mysql -h 127.0.0.1 -u hub_backup -N -e \
+      "SELECT COUNT(*) FROM admidio.adm_members WHERE mem_username='emily.carter';" 2>/dev/null)
+    [ "$RC" = "1" ] && ok "round-trip: destroyed row came back" || bad "round-trip: row missing after restore"
+  else
+    bad "portal snapshot missing (cannot test restore)"
+  fi
+else
+  ok "portal databases: test profile not set up (sudo bash portal-test.sh install+seed) - skipping"
+fi
 
 # ---------------------------------------------------------------- wrap up
 if [ "$KEEP_UP" = "0" ] && [ "${1:-}" != "--start" ]; then
