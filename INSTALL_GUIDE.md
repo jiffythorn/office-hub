@@ -216,6 +216,23 @@ office PC, paste that folder's path into the Backups card and save. From then
 on, every backup automatically lands in the cloud too. (Prefer a USB drive?
 Same box: just use a folder on it.)
 
+**Recommended: turn on the nightly backup.** One click in the admin console:
+**Backups → Turn on nightly backup (02:00)**. The hub adds itself to the
+system's own scheduler — cron on Linux, Task Scheduler on Windows — and takes
+a snapshot every night at 2 AM while the office PC is on. (Boot-time backups
+still happen regardless, so a machine that's often off at night is still
+covered.) Prefer the terminal?
+
+```
+python3 hub/backup.py --schedule         # turn on the nightly snapshot
+python3 hub/backup.py --unschedule      # turn it off again
+python3 hub/backup.py --schedule-status # is it on?
+```
+
+Officers can check the current state any time: the Backups card shows
+**Nightly schedule: ON/OFF**, and toggling it is logged in the activity trail
+like every other admin action.
+
 **If disaster strikes** (drive dies, someone deletes the wrong thing):
 ```
 python3 hub/backup.py --list                              (see snapshots)

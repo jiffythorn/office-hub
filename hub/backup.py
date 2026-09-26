@@ -452,6 +452,128 @@ def restore(name: str, databases: bool = False) -> tuple[int, list[str]]:
     return len(restored), dbmsg
 
 
+# ------------------------------------------------------------- scheduling
+
+# Nightly at 2 AM: the office PC is normally on and idle, and the boot
+# auto-backup still catches up if the machine was off at 2 AM.
+CRON_MARK_BEGIN = "# OFFICE-HUB-BACKUP BEGIN"
+CRON_MARK_END = "# OFFICE-HUB-BACKUP END"
+
+
+def _cron_block() -> str:
+    py = shutil.which("python3") or shutil.which("python") or "python3"
+    venv_py = ROOT / ".venv" / "bin" / "python"
+    if venv_py.exists():
+        py = str(venv_py)
+    # Quote both paths: install dirs with spaces ("C:\Program Files\...",
+    # "/home/jeff/Project Web/...") would otherwise split in the cron shell.
+    return (f"{CRON_MARK_BEGIN}\n"
+            f"0 2 * * * cd '{ROOT}' && '{py}' hub/backup.py --label nightly "
+            f">> data/backup-cron.log 2>&1\n"
+            f"{CRON_MARK_END}\n")
+
+
+def schedule_status() -> dict:
+    """Is the nightly backup scheduled on this OS? Never raises."""
+    try:
+        if sys.platform == "win32":
+            r = subprocess.run(["schtasks", "/Query", "/TN", "OfficeHubBackup"],
+                               capture_output=True)
+            return {"installed": r.returncode == 0,
+                    "detail": "Windows Task Scheduler, daily at 02:00"
+                              if r.returncode == 0 else "not scheduled"}
+        r = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        installed = CRON_MARK_BEGIN in (r.stdout or "")
+        return {"installed": installed,
+                "detail": "cron, daily at 02:00" if installed else "not scheduled"}
+    except Exception as e:
+        return {"installed": False, "detail": f"unknown ({e})"}
+
+
+def schedule_install() -> dict:
+    """Schedule the nightly backup (cron on Linux/macOS, Task Scheduler on
+    Windows). Idempotent: installing twice replaces the old entry."""
+    audit_ok = True
+    try:
+        if sys.platform == "win32":
+            py = ROOT / ".venv" / "Scripts" / "python.exe"
+            if not py.exists():
+                import shutil as _s
+                py = Path(_s.which("python") or "python")
+            cmd = (f'"{py}" "{ROOT / "hub" / "backup.py"}" --label nightly')
+            r = subprocess.run(["schtasks", "/Create", "/TN", "OfficeHubBackup",
+                                "/SC", "DAILY", "/ST", "02:00", "/TR", cmd,
+                                "/F"], capture_output=True, text=True)
+            ok = r.returncode == 0
+            detail = (r.stdout or r.stderr or "").strip().splitlines()[-1][:120] \
+                if (r.stdout or r.stderr) else ""
+        else:
+            r = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+            lines = (r.stdout or "").splitlines()
+            kept = []
+            skipping = False
+            for ln in lines:
+                if ln.strip() == CRON_MARK_BEGIN:
+                    skipping = True
+                    continue
+                if ln.strip() == CRON_MARK_END:
+                    skipping = False
+                    continue
+                if not skipping:
+                    kept.append(ln)
+            new_crontab = "\n".join(kept).strip()
+            new_crontab += "\n\n" + _cron_block()
+            w = subprocess.run(["crontab", "-"], input=new_crontab,
+                               text=True, capture_output=True)
+            ok = w.returncode == 0
+            detail = "cron entry installed (daily 02:00)" if ok else \
+                (w.stderr or "crontab write failed")[:120]
+        try:
+            from . import audit
+        except ImportError:
+            import audit
+        audit.record("backup.schedule", actor="system",
+                     outcome="ok" if ok else "failed", detail=detail)
+        return {"installed": ok, "detail": detail or ("scheduled" if ok else "failed")}
+    except Exception as e:
+        return {"installed": False, "detail": str(e)[:140]}
+
+
+def schedule_remove() -> dict:
+    try:
+        if sys.platform == "win32":
+            r = subprocess.run(["schtasks", "/Delete", "/TN", "OfficeHubBackup",
+                                "/F"], capture_output=True, text=True)
+            ok = r.returncode == 0
+            detail = "scheduled task removed" if ok else "was not scheduled"
+        else:
+            r = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+            lines = (r.stdout or "").splitlines()
+            kept, skipping = [], False
+            for ln in lines:
+                if ln.strip() == CRON_MARK_BEGIN:
+                    skipping = True
+                    continue
+                if ln.strip() == CRON_MARK_END:
+                    skipping = False
+                    continue
+                if not skipping:
+                    kept.append(ln)
+            w = subprocess.run(["crontab", "-"], input="\n".join(kept) + "\n",
+                               text=True, capture_output=True)
+            ok = w.returncode == 0
+            detail = "cron entry removed" if ok else "crontab write failed"
+        try:
+            from . import audit
+        except ImportError:
+            import audit
+        audit.record("backup.schedule", actor="system", outcome="removed")
+        return {"installed": False, "detail": detail}
+    except Exception as e:
+        return {"installed": schedule_status()["installed"],
+                "detail": str(e)[:140]}
+
+
 # --------------------------------------------------------------------- CLI
 
 def main() -> int:
@@ -463,7 +585,26 @@ def main() -> int:
     ap.add_argument("--verify", action="store_true")
     ap.add_argument("--restore", metavar="SNAPSHOT")
     ap.add_argument("--restore-databases", action="store_true")
+    ap.add_argument("--schedule", action="store_true",
+                    help="schedule the nightly backup (cron / Task Scheduler)")
+    ap.add_argument("--unschedule", action="store_true",
+                    help="remove the nightly backup schedule")
+    ap.add_argument("--schedule-status", action="store_true")
     args = ap.parse_args()
+
+    if args.schedule:
+        res = schedule_install()
+        print(f"[schedule] {'installed' if res['installed'] else 'FAILED'}: "
+              f"{res['detail']}")
+        return 0 if res["installed"] else 1
+    if args.unschedule:
+        res = schedule_remove()
+        print(f"[schedule] {res['detail']}")
+        return 0
+    if args.schedule_status:
+        res = schedule_status()
+        print(f"[schedule] {'ON' if res['installed'] else 'OFF'} - {res['detail']}")
+        return 0
 
     if args.list:
         snaps = list_snapshots()

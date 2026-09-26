@@ -168,6 +168,10 @@ python3 hub/backup.py --restore <name> --restore-databases      # + member DBs
 
 The **Backups card** in the admin console shows the last snapshot and has
 "Back up now" / "Check backups" buttons plus the cloud-folder setting.
+**Nightly backups** are one click away — "Turn on nightly backup (02:00)"
+installs a cron entry (Linux/macOS) or a Task Scheduler job (Windows) so a
+snapshot exists even if the PC doesn't reboot for weeks. CLI equivalents:
+`python3 hub/backup.py --schedule` / `--unschedule` / `--schedule-status`.
 
 ## Officer AI: a maintenance assistant with real powers (heavily fenced)
 

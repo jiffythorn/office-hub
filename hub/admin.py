@@ -170,6 +170,7 @@ def admin_home(request: Request):
     # Backups + Officer AI + audit trail data for the cards below
     last_bk = hub_backup.last_snapshot() or {}
     bk_cfg = cfg.get("backup", {})
+    sched = hub_backup.schedule_status()
     oconf = officer.load_conf()
     audit_rows = "".join(
         f"<tr><td>{escape(e['time'])}</td><td>{escape(e['actor'])}</td>"
@@ -240,13 +241,21 @@ def admin_home(request: Request):
   &middot; {escape(str(last_bk.get('files', '-')))} files
   &middot; {escape(str(last_bk.get('mb', '?')))} MB
   &middot; member databases: {escape(str(last_bk.get('databases', 'none')))}</p>
+  <p>Nightly schedule: <b>{'ON' if sched['installed'] else 'OFF'}</b>
+  <span class="small">({escape(sched['detail'])})</span></p>
   <div class="small">Protects your documents, settings, bot memory and the member
-  database from a dead drive. Keeps the newest 20 snapshots (30 days) and takes
-  one automatically at every boot.</div>
+  database from a dead drive. Keeps the newest 20 snapshots (30 days), takes one
+  at every boot, and can take one every night at 2 AM.</div>
   <form method="post" action="/admin/backup" style="display:inline">
     <input type="hidden" name="action" value="run"><button>Back up now</button></form>
   <form method="post" action="/admin/backup" style="display:inline">
     <input type="hidden" name="action" value="verify"><button class="plain">Check backups</button></form>
+  {'<form method="post" action="/admin/backup" style="display:inline">'
+   '<input type="hidden" name="action" value="unschedule">'
+   '<button class="plain">Turn off nightly backup</button></form>' if sched['installed'] else
+   '<form method="post" action="/admin/backup" style="display:inline">'
+   '<input type="hidden" name="action" value="schedule">'
+   '<button>Turn on nightly backup (02:00)</button></form>'}
   <form method="post" action="/admin/backup">
     <label>Also copy backups to a cloud-synced folder (OneDrive / Dropbox / Google Drive)</label>
     <input name="cloud_dir" value="{escape(bk_cfg.get('cloud_dir', ''))}" placeholder="e.g. C:\\Users\\you\\OneDrive\\Backups">
@@ -494,6 +503,17 @@ async def backup_action(request: Request, action: str = Form(""),
                      rclone=b["rclone_remote"] or "none")
         (ROOT / "config.json").write_text(json.dumps(cfg, indent=2))
         return RedirectResponse("/admin?m=Backup%20settings%20saved", status_code=303)
+    if action == "schedule":
+        res = hub_backup.schedule_install()
+        audit.record("admin.backup_schedule", actor="admin", **res)
+        msg = "Nightly backup scheduled (02:00)" if res["installed"] \
+            else f"Could not schedule: {res.get('detail', 'unknown')}"
+        return RedirectResponse("/admin?m=" + _q(msg), status_code=303)
+    if action == "unschedule":
+        res = hub_backup.schedule_remove()
+        audit.record("admin.backup_schedule", actor="admin", removed=True)
+        return RedirectResponse("/admin?m=Nightly%20backup%20schedule%20removed",
+                                status_code=303)
     return RedirectResponse("/admin", status_code=303)
 
 
