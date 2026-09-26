@@ -364,8 +364,11 @@ info, keep confidential minutes on the office screen.
 - ✅ Turn on **automatic updates** for the operating system.
 - ✅ In Flarum: require admin approval for new members. In Admidio: set
   member lists to "registered users only".
-- ✅ Back up weekly: copy the whole hub folder's `data/` and `documents/`
-  subfolders to a USB stick.
+- ✅ Turn on **nightly backups** in the admin console (Backups card) and point
+  them at a cloud-synced or USB folder — the hub then protects itself. The
+  doctor (`python3 doctor.py`) warns you if backups ever go stale.
+- ✅ Belt-and-braces: occasionally copy `data/` and `documents/` to a USB
+  stick as well.
 - ⚠️ Only the **Cloud AI** option sends anything to the internet — keep
   sensitive minutes in option 1 or 2.
 
@@ -382,6 +385,10 @@ Whoever set the hub up should leave behind:
 - [ ] `ADMIN_CREDENTIALS.txt` **deleted**
 - [ ] One test question answered successfully on their own documents
 - [ ] http://localhost:8090/status showing all green
+- [ ] **Nightly backups turned ON** (admin console → Backups) and pointed at
+      a cloud-synced or USB folder
+- [ ] The next officer knows about **WHATS_NEW.md** (what the hub does),
+      this guide, and POWER_MODE_GUIDE.md (phone chat + automations)
 - [ ] A scheduled task so the hub starts when the computer boots
       (Windows: put a shortcut to `start-hub.bat` in the Startup folder —
       Win+R → `shell:startup`. Linux: a systemd user service for

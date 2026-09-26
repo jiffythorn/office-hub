@@ -127,7 +127,9 @@ ultra-light blueprint.
 **http://localhost:8090/admin** — a password-protected settings page for
 everything the installer decides: privacy mode, cloud provider, local-AI
 context/threads, chain tiers, Power Mode with chat tokens, assistant name,
-timezone, plus Reindex and Restart-AI-services buttons. First visit asks you
+timezone, plus **Backups** (one-click snapshot, nightly schedule, cloud-folder
+sync), the **Officer AI** switch, Reindex and Restart-AI-services buttons, and
+the **activity trail** (who changed what, when). First visit asks you
 to create the admin password (or set it via `secure_admin.py`, which uses the
 HUB_AI_API password). Saves apply after the built-in restart — no need to
 re-run the installer.
@@ -247,6 +249,7 @@ install.py            smart installer (audit -> decide -> privacy -> power mode 
 .venv-agent/          optional nanobot agent (Power Mode: chat apps, automations)
 check_deps.py         readiness checker used by installer AND all start scripts
 doctor.py              check + auto-repair + restart (python3 doctor.py --yes)
+WHATS_NEW.md           one-page plain-language summary of what's new
 INSTALL_GUIDE.md       plain-English setup guide for non-technical users
 POWER_MODE_GUIDE.md    officer handbook: chat bots, testing, officer tools
 automations/           ready-to-install club automation preset pack

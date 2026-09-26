@@ -108,6 +108,17 @@ The blocked tools (shell, web) are what turn the assistant into a
 **powerhouse** — drafting files, running automations that touch documents,
 researching online. They are also the reason the default is OFF for members.
 
+> **First, consider the built-in Officer AI** (admin console → "Officer AI
+> (advanced)"). Added in v1.1, it covers the most common officer needs —
+> running the doctor, checking/installing backups, rebuilding the index,
+> restarting AI services, installing helper CLIs — with none of this setup:
+> it's switched on in the console, works from the office PC only, accepts
+> only allowlisted actions, and logs everything. Use it via the
+> `office-ai` menu (`./office-ai.sh`) or plain English:
+> `./office-ai.sh "is anything broken?"`. The section below is for going
+> beyond that allowlist (full shell, web access) — read it completely
+> before you do.
+
 **Recommended pattern: two bots, two configs.**
 
 1. Keep the **member bot** locked (default).
@@ -213,4 +224,5 @@ Schedules created through chat persist across restarts of the agent.
 | Restart everything | `stop-hub` → `start-hub` |
 | Health/status | `http://localhost:8090/status` |
 | Token created with | Telegram: @BotFather · Discord: discord.com/developers/applications |
-| Repair | `python3 doctor.py` |
+| Repair | `python3 doctor.py` (also checks your backups are fresh) |
+| Officer maintenance AI | admin console → Officer AI, or `./office-ai.sh` |
