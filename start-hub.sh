@@ -124,7 +124,7 @@ if [ "$($PY -c "import json;print(json.load(open('data/officer_ai.json')).get('e
   else
     nohup "$PY" hub/admin_ai.py > data/officer-ai.log 2>&1 &
     echo $! > data/officer-ai.pid
-    echo "[officer-ai] Officer AI gateway on http://localhost:8765 (key-protected, logged)"
+    echo "[officer-ai] Officer AI gateway on http://localhost:8766 (key-protected, logged)"
   fi
 fi
 

@@ -78,7 +78,7 @@ def home():
 <h1>&#127968; Office Hub Assistant</h1>
 <p style="color:#777">Answers come from your own documents in <code>documents/</code>. &middot; <a href="/admin" style="color:#888">admin</a></p>
 <div id="log"></div>
-<form onsubmit="return go()"><input id="q" placeholder="Ask about minutes, dues, bylaws..." autocomplete="off"><button>Ask</button></form>
+<form onsubmit="event.preventDefault();go()"><input id="q" placeholder="Ask about minutes, dues, bylaws..." autocomplete="off"><button>Ask</button></form>
 <script>
 async function go(){
   const q=document.getElementById('q');const log=document.getElementById('log');
@@ -165,6 +165,13 @@ def status_page():
     if cfg.get("power_mode"):
         services.append(("Agent gateway (Power Mode)", 18790,
                          "chat apps + automations (nanobot)"))
+    try:
+        from .admin_ai import load_conf as _oai_conf
+        if _oai_conf().get("enabled"):
+            services.append(("Officer AI gateway", 8766,
+                             "protected maintenance AI (admin console)"))
+    except Exception:
+        pass
     rows = ""
     for name, port, where in services:
         if port is None:
@@ -202,7 +209,7 @@ def status_page():
 
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="refresh" content="30"><title>Hub Status</title>
-<style>body{{font-family:system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem}}
+<style>body{{font-family:system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;background:#fafafa;color:#222}}
 table{{border-collapse:collapse;width:100%;margin:.5rem 0 1.5rem}}
 td,th{{border:1px solid #ddd;padding:.4rem .6rem;text-align:left;font-size:.9rem}}
 h2{{margin-top:1.5rem}}a{{color:#1a5fb4}}</style></head><body>

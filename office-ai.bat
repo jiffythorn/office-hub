@@ -13,7 +13,7 @@ cd /d "%~dp0"
 set "PY=.venv\Scripts\python.exe"
 if not exist "%PY%" set "PY=python"
 set "CONF=data\officer_ai.json"
-set "BASE=http://127.0.0.1:8765"
+set "BASE=http://127.0.0.1:8766"
 
 if not exist "%CONF%" (
   echo Officer AI is not configured yet.
@@ -64,10 +64,10 @@ goto menu
 REM %* = free text -> hub AI suggests an allowlisted action
 set "ACTION="
 set "PROMPT=%*"
-for /f "usebackq delims=" %%a in (`%PY% -c "import sys,json,re,urllib.request;sys.path.insert(0,'.');from hub.admin_ai import ALLOWED,SYSTEM_PROMPT;q=' '.join(sys.argv[1:]);body=json.dumps({'messages':[{'role':'system','content':SYSTEM_PROMPT},{'role':'user','content':q}],'max_tokens':60}).encode();r=urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8085/v1/chat/completions',data=body,headers={'Content-Type':'application/json'}),timeout=180);text=json.loads(r.read())['choices'][0]['message']['content'];m=re.search(r'\{[^}]*\"run\"\s*:\s*\"([\w]+)\"[^}]*\}',text);print(m.group(1) if m and m.group(1) in ALLOWED else '')" "%PROMPT%"`) do set "ACTION=%%a"
+for /f "usebackq delims=" %%a in (`%PY% -c "import sys,json,re,urllib.request;sys.path.insert(0,'.');from hub.admin_ai import ALLOWED,SYSTEM_PROMPT;q=' '.join(sys.argv[1:]);body=json.dumps({'messages':[{'role':'system','content':SYSTEM_PROMPT},{'role':'user','content':q}],'max_tokens':60}).encode();r=urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8085/v1/chat/completions',data=body,headers={'Content-Type':'application/json'}),timeout=180);text=json.loads(r.read())['choices'][0]['message']['content'];t2=text.replace(chr(34),'');m=re.search(r'\{[^{}]*\brun\b[^{}:]*:\s*([\w]+)',t2);print(m.group(1) if m and m.group(1) in ALLOWED else '')" "%PROMPT%"`) do set "ACTION=%%a"
 exit /b 0
 
 :run_one
-for /f "usebackq delims=" %%j in (`%PY% -c "import sys,json,urllib.request;key,token=sys.argv[1],sys.argv[2];req=urllib.request.Request('http://127.0.0.1:8765/run',data=json.dumps({'run':key}).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+token});r=urllib.request.urlopen(req,timeout=660);out=json.loads(r.read());print(json.dumps(out))" "%~1" "%TOKEN%"`) do set "JSONOUT=%%j"
+for /f "usebackq delims=" %%j in (`%PY% -c "import sys,json,urllib.request;key,token=sys.argv[1],sys.argv[2];req=urllib.request.Request('http://127.0.0.1:8766/run',data=json.dumps({'run':key}).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+token});r=urllib.request.urlopen(req,timeout=660);out=json.loads(r.read());print(json.dumps(out))" "%~1" "%TOKEN%"`) do set "JSONOUT=%%j"
 %PY% -c "import sys,json;out=json.loads(sys.argv[1]);print('===',out.get('command'),'===');print('REFUSED:',out['error']) if out.get('error') else (print(out.get('output','(no output)')),print('--- exit',out.get('exit'),out.get('seconds'),'s ---'))" "%JSONOUT%"
 exit /b 0

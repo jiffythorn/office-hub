@@ -24,7 +24,7 @@ How it is fenced
  4. Bounded: per-command timeout, output capped (tail kept), no prompt input
     is ever executed - input only selects from the allowlist.
 
-Run with the hub:  hub/admin_ai.py --port 8765   (started by start-hub.sh)
+Run with the hub:  hub/admin_ai.py --port 8766   (started by start-hub.sh)
 Officer CLI:       ./office-ai.sh "check the hub for problems"
 """
 
@@ -45,7 +45,7 @@ except ImportError:              # run directly: python3 hub/admin_ai.py
 
 ROOT = Path(__file__).resolve().parent.parent
 CONF_FILE = ROOT / "data" / "officer_ai.json"
-DEFAULT_PORT = 8765
+DEFAULT_PORT = 8766
 CMD_TIMEOUT = 600          # doctor/install can legitimately run for minutes
 OUTPUT_CAP = 12_000        # keep the tail of long output
 

@@ -204,7 +204,7 @@ def admin_home(request: Request):
   <h2>Fallback chain (mode 2)</h2>
   <label>Tiers</label>
   <select name="chain_disabled">{_sel([
-      ("", "local &rarr; free-no-key &rarr; keyed &rarr; paid (recommended)"),
+      ("", "local -> free-no-key -> keyed -> paid (recommended)"),
       ("nokey", "local only (disable free-no-key cloud)"),
       ("nokey,keyedfree,paid", "local only (disable all cloud tiers)")], ",".join(cfg.get("llm_chain", {}).get("disabled", [])))}</select>
 

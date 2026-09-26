@@ -11,7 +11,7 @@
 cd "$(dirname "$0")"
 PY=".venv/bin/python"; [ -x "$PY" ] || PY=python3
 CONF=data/officer_ai.json
-BASE=http://127.0.0.1:8765
+BASE=http://127.0.0.1:8766
 
 if [ ! -f "$CONF" ]; then
   echo "Officer AI is not configured yet."
@@ -63,7 +63,7 @@ run_one() {  # $1 = allowlisted key
 import sys, json, urllib.request
 key, token = sys.argv[1], sys.argv[2]
 req = urllib.request.Request(
-    "http://127.0.0.1:8765/run",
+    "http://127.0.0.1:8766/run",
     data=json.dumps({"run": key}).encode(),
     headers={"Content-Type": "application/json",
              "Authorization": f"Bearer {token}"})
@@ -74,7 +74,7 @@ except urllib.error.HTTPError as e:
     out = {"ok": False, "error": json.loads(e.read()).get("error", e.reason)}
 except Exception as e:
     out = {"ok": False, "error":
-           f"cannot reach the Officer AI gateway on :8765 - restart the hub "
+           f"cannot reach the Officer AI gateway on :8766 - restart the hub "
            f"(./start-hub.sh) with the Officer AI enabled in the admin console. ({e})"}
 print(("=== " + key + " ==="))
 if out.get("error"):

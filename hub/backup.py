@@ -162,9 +162,11 @@ def _mysql_tool(name: str) -> str | None:
     if found:
         return found
     if sys.platform == "win32":  # common Windows MariaDB/XAMPP locations
-        for pattern in ("C:/Program Files/MariaDB */bin", "C:/xampp/mysql/bin"):
-            for d in Path("/").glob(pattern):
-                p = d / f"{name}.exe"
+        import glob as _glob
+        for pattern in ("C:/Program Files/MariaDB */bin",
+                        "C:/xampp/mysql/bin"):
+            for d in _glob.glob(pattern):
+                p = Path(d) / f"{name}.exe"
                 if p.exists():
                     return str(p)
     return None

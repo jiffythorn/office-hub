@@ -126,12 +126,12 @@ REM --- 6. Officer AI gateway (only when switched on in the admin console) -----
 set "OFFICER="
 if exist "data\officer_ai.json" for /f "usebackq delims=" %%i in (`%PY% -c "import json;print(json.load(open('data/officer_ai.json')).get('enabled', False))" 2^>nul`) do set "OFFICER=%%i"
 if /i "%OFFICER%"=="True" (
-  %PY% portcheck.py 8765 >nul 2>&1
+  %PY% portcheck.py 8766 >nul 2>&1
   if errorlevel 1 (
     start "" /b "%PY%" hub\admin_ai.py > data\officer-ai.log 2>&1
-    echo [officer-ai] Officer AI gateway on http://localhost:8765 ^(key-protected, logged^)
+    echo [officer-ai] Officer AI gateway on http://localhost:8766 ^(key-protected, logged^)
   ) else (
-    echo [officer-ai] already running ^(:8765^)
+    echo [officer-ai] already running ^(:8766^)
   )
 )
 echo [hub] up.
